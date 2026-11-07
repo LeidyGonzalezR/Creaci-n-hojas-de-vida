@@ -6,367 +6,175 @@
   <title>Hoja de Vida Biomédica | Clínica La Esperanza</title>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';</script>
-  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    :root{--bg:#f4f7fb;--panel:#fff;--ink:#172033;--muted:#667085;--line:#d9e1ec;--accent:#006b7d;--accent2:#0f8f7f;--ok:#16794b;--warn:#a05a00;--bad:#b42318;--soft:#eef5f7}
+    :root{--bg:#f4f7fb;--panel:#fff;--ink:#172033;--muted:#667085;--line:#d9e1ec;--accent:#006b7d;--accent2:#0f8f7f;--ok:#16794b;--warn:#a05a00;--bad:#b42318;--soft:#eef5f7;--manual:#3451b2}
     *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
     header{background:linear-gradient(120deg,#074e61,#087e78);color:white;padding:20px 24px;box-shadow:0 2px 10px #0002}
     header h1{margin:0;font-size:22px} header p{margin:6px 0 0;opacity:.9;font-size:13px}
-    .wrap{max-width:1420px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
+    .wrap{max-width:1440px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 3px 14px #102a4310;overflow:hidden}.card h2{font-size:15px;margin:0;padding:14px 16px;border-bottom:1px solid var(--line);background:#fbfcfe}.card .body{padding:14px 16px}
-    .drop{border:2px dashed #9bb8c0;border-radius:12px;padding:22px 14px;text-align:center;background:#f8fbfc;cursor:pointer}.drop.drag{background:#e8f6f5;border-color:var(--accent2)}.drop strong{display:block;margin-bottom:5px}.drop small{color:var(--muted)}
-    input[type=file]{display:none}.btn{border:0;border-radius:9px;padding:10px 13px;font-weight:600;cursor:pointer}.btn.primary{background:var(--accent);color:white}.btn.secondary{background:#eaf1f4;color:#17404a}.btn.ghost{background:white;border:1px solid var(--line)}.btn.danger{background:#fff1f0;color:var(--bad);border:1px solid #f4c7c3}.btn:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    .doc{padding:10px 0;border-bottom:1px solid #edf0f4}.doc:last-child{border:0}.docname{font-weight:600;font-size:13px;word-break:break-word}.badge{display:inline-block;padding:3px 7px;border-radius:99px;font-size:11px;font-weight:700;margin-top:5px;background:#edf2f7;color:#42526b}.badge.ok{background:#e9f7ef;color:var(--ok)}.badge.warn{background:#fff4e5;color:var(--warn)}.meta{font-size:11px;color:var(--muted);margin-top:4px}.progress{height:7px;background:#e6edf2;border-radius:99px;overflow:hidden;margin-top:8px}.progress>i{display:block;height:100%;width:0;background:var(--accent2);transition:.2s}
+    .btn{border:0;border-radius:9px;padding:10px 13px;font-weight:650;cursor:pointer;font-size:13px}.btn.primary{background:var(--accent);color:white}.btn.secondary{background:#eaf1f4;color:#17404a}.btn.ghost{background:white;border:1px solid var(--line)}.btn.danger{background:#fff1f0;color:var(--bad);border:1px solid #f4c7c3}.btn:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .notice{background:#f0f8fa;border:1px solid #cce7eb;color:#24515c;padding:11px 12px;border-radius:9px;font-size:12px;line-height:1.45}.warnbox{background:#fff8ec;border-color:#f3d59a;color:#70450b}.okbox{background:#effaf4;border-color:#cbead8;color:#195f3c}
+    .workflow{margin:0;padding-left:19px;font-size:12px;line-height:1.7;color:#39485a}.workflow strong{color:var(--ink)}
+    input[type=file]{display:none}.photoPreview{margin-top:10px;display:none;width:100%;max-height:230px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#f8fafc}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line);background:#fbfcfe}.statusline{font-size:12px;color:var(--muted);padding:9px 16px;border-bottom:1px solid var(--line)}
-    .section{padding:12px 16px;border-bottom:1px solid var(--line)}.section:last-child{border:0}.section h3{font-size:14px;margin:0 0 10px;color:#27475a}.fields{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px}.field{border:1px solid var(--line);border-radius:10px;padding:9px;background:#fff}.field label{font-size:11px;font-weight:700;color:#526174;display:flex;justify-content:space-between;gap:6px}.field input,.field select,.field textarea{width:100%;margin-top:6px;border:1px solid #ccd6e0;border-radius:7px;padding:8px;font:inherit;font-size:12px;background:#fff}.field textarea{min-height:58px;resize:vertical}.src{font-size:10px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.state{font-size:10px;border-radius:99px;padding:2px 6px}.state.ok{background:#e9f7ef;color:var(--ok)}.state.warn{background:#fff4e5;color:var(--warn)}.state.bad{background:#fff0ef;color:var(--bad)}
-    .empty{padding:28px;text-align:center;color:var(--muted)}.notice{background:#f0f8fa;border:1px solid #cce7eb;color:#24515c;padding:10px 12px;border-radius:9px;font-size:12px;line-height:1.4}.warnbox{background:#fff8ec;border-color:#f3d59a;color:#70450b}.footer{font-size:11px;color:var(--muted);text-align:center;padding:18px}
-    dialog{border:0;border-radius:14px;box-shadow:0 16px 50px #0004;width:min(760px,94vw)}dialog::backdrop{background:#0006}dialog textarea{width:100%;min-height:280px;font-family:Consolas,monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px}
+    .section{padding:12px 16px;border-bottom:1px solid var(--line)}.section:last-child{border:0}.section h3{font-size:14px;margin:0 0 10px;color:#27475a}.fields{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px}
+    .field{border:1px solid var(--line);border-radius:10px;padding:9px;background:#fff}.field.manualField{background:#f9faff;border-color:#cfd7f6}.field label{font-size:11px;font-weight:700;color:#526174;display:flex;justify-content:space-between;gap:6px;align-items:center}.field input,.field textarea{width:100%;margin-top:6px;border:1px solid #ccd6e0;border-radius:7px;padding:8px;font:inherit;font-size:12px;background:#fff}.field textarea{min-height:62px;resize:vertical}.src{font-size:10px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.state{font-size:10px;border-radius:99px;padding:2px 6px;white-space:nowrap}.state.ok{background:#e9f7ef;color:var(--ok)}.state.warn{background:#fff4e5;color:var(--warn)}.state.bad{background:#fff0ef;color:var(--bad)}.state.manual{background:#eef1ff;color:var(--manual)}
+    .empty{padding:36px;text-align:center;color:var(--muted)}.footer{font-size:11px;color:var(--muted);text-align:center;padding:18px}
+    dialog{border:0;border-radius:14px;box-shadow:0 16px 50px #0004;width:min(850px,94vw);padding:0}dialog::backdrop{background:#0006}.dialogHead{padding:15px 18px;border-bottom:1px solid var(--line);font-weight:700}.dialogBody{padding:16px 18px}.dialogFoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}.jsonarea,.promptarea{width:100%;min-height:330px;font-family:Consolas,monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}.promptarea{min-height:420px}
+    .key{display:inline-block;font-family:Consolas,monospace;background:#eef2f6;border-radius:5px;padding:2px 5px;font-size:11px}.small{font-size:11px;color:var(--muted)}
     @media(max-width:980px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:repeat(2,minmax(150px,1fr))}} @media(max-width:620px){.fields{grid-template-columns:1fr}.wrap{padding:10px}}
   </style>
 </head>
 <body>
-<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · extracción local de documentos y generación del formato institucional</p></header>
+<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · revisión de datos extraídos por Copilot y generación del formato institucional</p></header>
 <div class="wrap">
   <div class="grid">
     <aside>
       <div class="card">
-        <h2>1. Documentos del equipo</h2>
+        <h2>1. Obtener datos con Copilot</h2>
         <div class="body">
-          <div class="notice">Los documentos se procesan en este navegador. Esta versión no los envía a un servidor propio. Las librerías se cargan desde CDN.</div>
-          <label class="drop" id="drop"><strong>Arrastra documentos aquí</strong><small>PDF, DOCX, TXT, JPG/PNG. Puedes cargar varios a la vez.</small><br><br><span class="btn secondary">Seleccionar archivos</span></label>
-          <input id="files" type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp" />
-          <div class="actions"><button class="btn ghost" id="pasteJson">Importar JSON de Copilot</button><button class="btn danger" id="clearAll">Limpiar</button></div>
-          <div id="docs" style="margin-top:12px"></div>
+          <div class="notice">Copilot se encarga de interpretar manuales, INVIMA, fichas técnicas, importaciones, garantía y actas. Este aplicativo se encarga de <strong>revisar, completar y generar el Excel institucional</strong>.</div>
+          <ol class="workflow">
+            <li>Sube hasta 3 documentos por lote en tu agente.</li>
+            <li>Cuando termines todos los lotes, pide <strong>“Generar para aplicativo”</strong>.</li>
+            <li>Copia el JSON y pégalo aquí.</li>
+          </ol>
+          <div class="actions"><button class="btn secondary" id="copyPrompt">Copiar prompt para Copilot</button><button class="btn primary" id="pasteJson">Importar JSON</button></div>
+          <div id="importStatus" class="small" style="margin-top:9px">Sin JSON importado.</div>
         </div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2>2. Foto del equipo</h2>
-        <div class="body"><input id="photo" type="file" accept="image/*" /><label for="photo" class="btn ghost" style="display:inline-block">Elegir fotografía</label><div id="photoInfo" class="meta" style="margin-top:8px">Sin fotografía seleccionada.</div></div>
+        <div class="body">
+          <input id="photo" type="file" accept="image/*" />
+          <label for="photo" class="btn ghost" style="display:inline-block">Elegir fotografía</label>
+          <div id="photoInfo" class="small" style="margin-top:8px">Sin fotografía seleccionada.</div>
+          <img id="photoPreview" class="photoPreview" alt="Vista previa de la foto" />
+        </div>
       </div>
       <div class="card" style="margin-top:16px">
         <h2>3. Generar</h2>
         <div class="body">
-          <div class="notice warnbox">Revisa los campos amarillos o rojos antes de generar. Los datos institucionales como inventario y ubicación normalmente requieren validación manual.</div>
-          <div class="actions"><button class="btn primary" id="generate">Generar Excel institucional</button><button class="btn ghost" id="saveDraft">Guardar borrador local</button></div>
-          <div id="genStatus" class="meta" style="margin-top:8px"></div>
+          <div class="notice warnbox">Revisa especialmente los campos <strong>amarillos</strong> y los datos institucionales en azul. Los campos vacíos se escribirán como N/R.</div>
+          <div class="actions"><button class="btn primary" id="generate">Generar Excel institucional</button><button class="btn ghost" id="saveDraft">Guardar borrador</button></div>
+          <div class="actions"><button class="btn ghost" id="downloadJson">Descargar JSON revisado</button><button class="btn danger" id="clearAll">Limpiar</button></div>
+          <div id="genStatus" class="small" style="margin-top:9px"></div>
         </div>
       </div>
     </aside>
     <main class="card">
       <h2>Revisión de información</h2>
-      <div class="toolbar"><button class="btn secondary" id="autoExtract">Reanalizar documentos</button><button class="btn ghost" id="restoreDraft">Restaurar borrador</button></div>
-      <div class="statusline" id="summary">Carga documentos para comenzar. Modo conservador: solo se completan valores con patrón técnico válido; ante duda se deja N/R.</div>
+      <div class="toolbar"><button class="btn ghost" id="restoreDraft">Restaurar borrador</button><button class="btn ghost" id="markReviewed">Marcar campos con valor como revisados</button></div>
+      <div class="statusline" id="summary">Importa un JSON generado por Copilot para comenzar.</div>
       <div id="form"><div class="empty">Todavía no hay información para revisar.</div></div>
     </main>
   </div>
-  <div class="footer">Aplicativo local de apoyo documental. La validación final de la hoja de vida corresponde a Ingeniería Biomédica.</div>
+  <div class="footer">Aplicativo de apoyo documental. La validación final de la hoja de vida corresponde a Ingeniería Biomédica.</div>
 </div>
-<dialog id="jsonDialog"><h3>Importar JSON generado por Copilot</h3><p class="meta">Pega un objeto JSON. Los campos reconocidos se incorporarán y podrás revisarlos antes de generar el Excel.</p><textarea id="jsonText" placeholder='{"nombre":"...","marca":"..."}'></textarea><div class="actions"><button class="btn primary" id="applyJson">Importar</button><button class="btn ghost" id="cancelJson">Cancelar</button></div></dialog>
+
+<dialog id="jsonDialog">
+  <div class="dialogHead">Importar JSON de Copilot</div>
+  <div class="dialogBody">
+    <p class="small">Acepta JSON plano o con estructura <span class="key">valor / fuente / estado</span>. Puedes pegar directamente la respuesta del agente.</p>
+    <textarea id="jsonText" class="jsonarea" placeholder='{"nombre":{"valor":"Cama hospitalaria Affinity 4","fuente":"Manual","estado":"confirmado"},"marca":{"valor":"Hillrom","fuente":"INVIMA","estado":"confirmado"}}'></textarea>
+    <div id="jsonError" class="small" style="color:#b42318;margin-top:8px"></div>
+  </div>
+  <div class="dialogFoot"><button class="btn ghost" id="cancelJson">Cancelar</button><button class="btn primary" id="applyJson">Importar y revisar</button></div>
+</dialog>
+
+<dialog id="promptDialog">
+  <div class="dialogHead">Prompt para tu agente de Copilot</div>
+  <div class="dialogBody"><textarea id="promptText" class="promptarea" readonly></textarea><div id="copyStatus" class="small" style="margin-top:8px"></div></div>
+  <div class="dialogFoot"><button class="btn ghost" id="closePrompt">Cerrar</button><button class="btn primary" id="copyPromptInside">Copiar prompt</button></div>
+</dialog>
+
 <script>
 const TEMPLATE_URL='./Hoja_de_vida_maestra.xlsx';
-const PRIORITY={invima:100,placa:95,manual:90,ficha:85,garantia:80,acta_instalacion:78,factura:75,importacion:70,acta_entrega:65,otro:40};
 const FIELDS=[
-['general','nombre','Nombre del equipo','M5'],['general','marca','Marca','T5'],['general','modelo','Modelo','AA5'],['general','serie','Serie','M6'],['general','inventario','Inventario / activo','T6'],['general','ubicacion','Ubicación','AA6'],
-['adq','formaAdquisicion','Forma de adquisición','P7'],['adq','documentoAdquisicion','Documento de adquisición','Z7'],['adq','numeroDocumento','N° documento','AE7'],['adq','fechaCompra','Compra / fecha','N8'],['adq','actaRecibo','Acta de recibo','T8'],['adq','fechaInstalacion','Instalación','Y8'],['adq','inicioOperacion','Inicio de operación','AE8'],['adq','garantia','Venc. garantía / garantía','O9'],['adq','costo','Costo (COP)','W9'],['adq','vidaUtil','Vida útil','AC9'],
-['proveedor','proveedor','Proveedor','N10'],['proveedor','telefono','Teléfono','V10'],['proveedor','correo','Correo','Z10'],['proveedor','fabricante','Fabricante','N11'],['proveedor','pais','País','Z11'],
-['bio','registroSanitario','Registro sanitario','P14'],['bio','vencimientoRegistro','Vencimiento registro','X14'],['bio','clasificacionBiomedica','Clasificación biomédica','Q15'],['bio','clasificacionRiesgo','Clasificación por riesgo','Y15'],
-['tec','fuenteAlimentacion','Fuente de alimentación','F17'],['tec','tecnologiaPredominante','Tecnología predominante','O17'],['tec','voltaje','Voltaje','C18'],['tec','corriente','Corriente','I18'],['tec','otroElectrico','Otro','L18'],['tec','potencia','Potencia','C19'],['tec','frecuencia','Frecuencia','I19'],['tec','dimensiones','Dimensiones','P19'],['tec','presion','Presión','C20'],['tec','velocidad','Velocidad','I20'],['tec','bateria','Batería interna','P20'],['tec','peso','Peso','C21'],['tec','temperatura','Temperatura','I21'],['tec','tamanoPantalla','Tamaño pantalla','P21'],['tec','presionAtmosferica','Presión atmosférica','C22'],['tec','humedad','Humedad','I22'],['tec','procesador','Procesador','C23'],['tec','memoriaRam','Memoria RAM','I23'],['tec','numeroProcesadores','N° procesadores','C24'],['tec','capDisco','Capacidad disco duro','I24'],['tec','pulgadas','Pulgadas','C25'],
-['extra','componentes','Componentes y accesorios','A27'],['extra','protocoloMantenimiento','Protocolo de mantenimiento','A32'],['extra','periodicidad','Periodicidad','P31'],['extra','recomendaciones','Recomendaciones del fabricante','U32']
-].map(x=>({section:x[0],key:x[1],label:x[2],cell:x[3]}));
-const sections={general:'Información general',adq:'Adquisición y puesta en operación',proveedor:'Proveedor y fabricante',bio:'Información biomédica',tec:'Registro técnico de instalación',extra:'Información complementaria'};
-let docs=[], candidates={}, selected={}, photoData=null;
+['general','nombre','Nombre del equipo','M5',false],['general','marca','Marca','T5',false],['general','modelo','Modelo','AA5',false],['general','serie','Serie','M6',true],['general','inventario','Inventario / activo','T6',true],['general','ubicacion','Ubicación','AA6',true],
+['adq','formaAdquisicion','Forma de adquisición','P7',true],['adq','documentoAdquisicion','Documento de adquisición','Z7',false],['adq','numeroDocumento','N° documento','AE7',false],['adq','fechaCompra','Compra / fecha','N8',false],['adq','actaRecibo','Acta de recibo','T8',false],['adq','fechaInstalacion','Instalación','Y8',false],['adq','inicioOperacion','Inicio de operación','AE8',true],['adq','garantia','Venc. garantía / garantía','O9',false],['adq','costo','Costo (COP)','W9',false],['adq','vidaUtil','Vida útil','AC9',false],
+['proveedor','proveedor','Proveedor','N10',false],['proveedor','telefono','Teléfono','V10',false],['proveedor','correo','Correo','Z10',false],['proveedor','fabricante','Fabricante','N11',false],['proveedor','pais','País','Z11',false],
+['bio','registroSanitario','Registro sanitario','P14',false],['bio','vencimientoRegistro','Vencimiento registro','X14',false],['bio','clasificacionBiomedica','Clasificación biomédica','Q15',true],['bio','clasificacionRiesgo','Clasificación por riesgo','Y15',false],
+['tec','fuenteAlimentacion','Fuente de alimentación','F17',false],['tec','tecnologiaPredominante','Tecnología predominante','O17',true],['tec','voltaje','Voltaje','C18',false],['tec','corriente','Corriente','I18',false],['tec','otroElectrico','Otro','L18',false],['tec','potencia','Potencia','C19',false],['tec','frecuencia','Frecuencia','I19',false],['tec','dimensiones','Dimensiones','P19',false],['tec','presion','Presión','C20',false],['tec','velocidad','Velocidad','I20',false],['tec','bateria','Batería interna','P20',false],['tec','peso','Peso','C21',false],['tec','temperatura','Temperatura','I21',false],['tec','tamanoPantalla','Tamaño pantalla','P21',false],['tec','presionAtmosferica','Presión atmosférica','C22',false],['tec','humedad','Humedad','I22',false],['tec','procesador','Procesador','C23',false],['tec','memoriaRam','Memoria RAM','I23',false],['tec','numeroProcesadores','N° procesadores','C24',false],['tec','capDisco','Capacidad disco duro','I24',false],['tec','pulgadas','Pulgadas','C25',false],
+['extra','componentes','Componentes y accesorios','A27',false],['extra','protocoloMantenimiento','Protocolo de mantenimiento','A32',true],['extra','periodicidad','Periodicidad','P31',true],['extra','recomendaciones','Recomendaciones del fabricante','U32',false]
+].map(x=>({section:x[0],key:x[1],label:x[2],cell:x[3],institutional:x[4]}));
+const SECTIONS={general:'Información general',adq:'Adquisición y puesta en operación',proveedor:'Proveedor y fabricante',bio:'Información biomédica',tec:'Registro técnico de instalación',extra:'Información complementaria'};
+let values={}, meta={}, photoData=null;
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function normalize(s){return String(s||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim()}
-function classify(name,text){
-  const n=(name||'').toLowerCase();
-  const t=(text||'').slice(0,16000).toLowerCase();
-  const score={invima:0,manual:0,ficha:0,importacion:0,garantia:0,acta_instalacion:0,acta_entrega:0,factura:0,placa:0};
-  const defs={
-    invima:['registro invima','registro sanitario','invima','resol'],
-    manual:['manual de usuario','manual usuario','user manual','service manual','manual de servicio'],
-    ficha:['ficha técnica','ficha tecnica','technical data','datasheet','especificaciones'],
-    importacion:['importación','importacion','declaración de importación','declaracion de importacion'],
-    garantia:['carta de garantía','carta de garantia','garantía','garantia','warranty'],
-    acta_instalacion:['acta de instalación','acta de instalacion','instalación y puesta','instalacion y puesta'],
-    acta_entrega:['acta de entrega','acta de recibo','entrega cama','entrega equipo'],
-    factura:['factura','invoice','orden de compra','fc '],
-    placa:['placa','nameplate','serial plate']
-  };
-  for(const [k,words] of Object.entries(defs)){
-    for(const w of words){ if(n.includes(w)) score[k]+=12; if(t.includes(w)) score[k]+=1; }
-  }
-  // El nombre de archivo manda. Evita que una carta de garantía termine como "manual" porque cita el manual.
-  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]);
-  return ranked[0]&&ranked[0][1]>0?ranked[0][0]:'otro';
-}
-function pdfItemsToText(items){
-  const rows=[];
-  for(const it of items){
-    const y=Math.round((it.transform?.[5]||0)*2)/2;
-    const x=it.transform?.[4]||0;
-    let row=rows.find(r=>Math.abs(r.y-y)<=2);
-    if(!row){row={y,items:[]};rows.push(row)}
-    row.items.push({x,str:it.str||''});
-  }
-  rows.sort((a,b)=>b.y-a.y);
-  return rows.map(r=>r.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
-}
-async function ocrPdfPage(page){
-  const viewport=page.getViewport({scale:1.6});
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  await page.render({canvasContext:ctx,viewport}).promise;
-  const r=await Tesseract.recognize(canvas,'spa+eng',{logger:m=>{}});
-  return normalize(r.data.text||'');
-}
-async function extractPDF(file){
-  const buf=await file.arrayBuffer();
-  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  let text='';
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i);
-    const tc=await page.getTextContent();
-    const pageText=pdfItemsToText(tc.items);
-    text+=`\n--- PÁGINA ${i} ---\n${pageText}`;
-  }
-  let normalized=normalize(text);
-  // PDFs escaneados: si casi no hay texto, aplica OCR a las primeras páginas.
-  if(normalized.replace(/--- PÁGINA \d+ ---/g,'').trim().length < 350){
-    let ocr='';
-    const maxPages=Math.min(pdf.numPages,4);
-    for(let i=1;i<=maxPages;i++){
-      const page=await pdf.getPage(i);
-      ocr+=`\n--- OCR PÁGINA ${i} ---\n${await ocrPdfPage(page)}`;
+function normalizeState(s){s=String(s||'').toLowerCase().trim();if(['confirmado','confirmed','ok'].includes(s))return 'confirmado';if(['revisar','review','discrepancia','discrepancia documental'].includes(s))return 'revisar';if(['manual','institucional'].includes(s))return 'manual';return 'pendiente'}
+function normalizeImported(obj){
+  const out={}, m={};
+  for(const f of FIELDS){
+    const raw=obj?.[f.key];
+    if(raw==null) continue;
+    if(typeof raw==='object' && !Array.isArray(raw)){
+      const v=raw.valor ?? raw.value ?? raw.dato ?? '';
+      out[f.key]=String(v??'').trim();
+      m[f.key]={fuente:String(raw.fuente ?? raw.source ?? '').trim(),estado:normalizeState(raw.estado ?? raw.status)};
+    }else{
+      out[f.key]=String(raw).trim();
+      m[f.key]={fuente:'Copilot',estado:out[f.key] && out[f.key]!=='N/R'?'revisar':'pendiente'};
     }
-    if(ocr.trim().length>normalized.trim().length) normalized=normalize(ocr);
   }
-  return {text:normalized,pages:pdf.numPages};
+  return {out,m};
 }
-async function ocrImage(file){const r=await Tesseract.recognize(file,'spa+eng',{logger:m=>{}});return normalize(r.data.text);}
-async function extractDocx(file){const r=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return normalize(r.value)}
-async function extractFile(file){const ext=file.name.split('.').pop().toLowerCase();if(ext==='pdf')return await extractPDF(file);if(ext==='docx')return {text:await extractDocx(file)};if(['jpg','jpeg','png','webp'].includes(ext))return {text:await ocrImage(file)};if(ext==='txt')return {text:normalize(await file.text())};return {text:''};}
-function cleanValue(value){
-  let v=normalize(value).replace(/^[:\-–—\s]+|[;,.\s]+$/g,'');
-  // corta cuando otra etiqueta probable empieza en la misma línea
-  v=v.replace(/\s{2,}(?:marca|modelo|model|referencia|fabricante|manufacturer|pa[ií]s|serie|serial|voltaje|voltage|corriente|current|potencia|power|frecuencia|frequency|peso|weight|dimensiones|dimensions|bater[ií]a|battery|temperatura|temperature|humedad|humidity)\s*[:\-].*$/i,'').trim();
-  return v;
+function stateInfo(key){
+  const f=FIELDS.find(x=>x.key===key);const v=(values[key]||'').trim();
+  if(!v||v==='N/R')return ['bad','Pendiente'];
+  if(f?.institutional)return ['manual','Institucional'];
+  const st=meta[key]?.estado||'revisar';
+  if(st==='confirmado')return ['ok','Confirmado'];if(st==='manual')return ['manual','Manual'];return ['warn','Revisar'];
 }
-function looksLikeSentence(v){return /[.!?].{12,}/.test(v)||v.split(/\s+/).length>16}
-function addCandidate(key,value,doc,confidence=0.75){
-  value=cleanValue(value);
-  if(!value||value.length>180)return;
-  if(!validateField(key,value,doc))return;
-  if(!candidates[key])candidates[key]=[];
-  if(!candidates[key].some(c=>c.value.toLowerCase()===value.toLowerCase())) candidates[key].push({value,doc:doc.name,type:doc.type,confidence,priority:PRIORITY[doc.type]||40});
-}
-function validateField(key,v,doc){
-  const x=v.trim();
-  const bad=/confidencial|uso interno|advertencia|no use|manual de usuario|orden de compra|asunto:|secadora|anestesia|página \d|page \d|patrocinador|sponsor|representante legal|legal:|autorizado:|authorized representative/i;
-  if(bad.test(x)) return false;
-  switch(key){
-    case 'marca': return x.length<=45 && !looksLikeSentence(x) && !/\d{4,}/.test(x);
-    case 'modelo': return x.length<=45 && !looksLikeSentence(x) && !/^(orden|carta|factura|registro|manual)\b/i.test(x);
-    case 'serie': return x.length<=50 && !looksLikeSentence(x) && /[A-Z0-9]/i.test(x) && !/etiqueta|ubicada|armaz[oó]n/i.test(x);
-    case 'fabricante': return x.length<=80 && !looksLikeSentence(x) && !/^(?:legal|patrocinador|sponsor|representante|authorized|importador|distribuidor)\b/i.test(x);
-    case 'pais': return x.length<=35 && !looksLikeSentence(x) && /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ .-]+$/.test(x);
-    case 'registroSanitario': return /(?:20\d{2})DM-?\d{5,10}/i.test(x);
-    case 'vencimientoRegistro': return /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(x);
-    case 'clasificacionRiesgo': return /^(?:I|IIA|IIB|II|III|IV)$/i.test(x.replace(/\s/g,''));
-    case 'vidaUtil': return /^\d+(?:[.,]\d+)?\s*(?:año|años|mes|meses|year|years)$/i.test(x);
-    case 'telefono': return /^[+()0-9\s\-]{7,25}$/.test(x);
-    case 'correo': return /^[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(x);
-    case 'numeroDocumento': return x.length<=35 && /^[A-Z0-9._\-/ ]+$/i.test(x) && /\d/.test(x) && !/^(?:ELECTR|ELECTRICO|ELECTRICA|AC|DC|VAC|VDC)$/i.test(x.trim());
-    case 'costo': return /^[0-9.$\s,]+$/.test(x) && /\d/.test(x);
-    case 'garantia': return x.length<=80 && !looksLikeSentence(x) && /(mes|meses|año|años|year|years|desde|hasta|vigencia)/i.test(x);
-    case 'voltaje': return /\b\d{1,3}(?:[.,]\d+)?(?:\s*[–\-~]\s*\d{1,3}(?:[.,]\d+)?)?\s*V(?:AC|DC)?\b/i.test(x);
-    case 'corriente': return /\b\d+(?:[.,]\d+)?\s*(?:mA|A)\b/i.test(x);
-    case 'potencia': return /\b\d+(?:[.,]\d+)?\s*(?:W|VA)\b/i.test(x);
-    case 'frecuencia': return /\b(?:50|60)(?:\s*[\/–\-~]\s*(?:50|60))?\s*Hz\b/i.test(x);
-    case 'peso': return /\b\d+(?:[.,]\d+)?\s*(?:kg|g|lb|lbs)\b/i.test(x) && x.length<=55;
-    case 'dimensiones': return x.length<=110 && /\d/.test(x) && /(?:mm|cm|m\b|in\b|pulg|inch|×|x\s*\d)/i.test(x);
-    case 'bateria': return x.length<=110 && /(bater[ií]a|battery|iones? de litio|lithium|NiMH|NiCd|plomo)/i.test(x) && /\d/.test(x);
-    case 'temperatura': return x.length<=70 && /-?\d+(?:[.,]\d+)?\s*°?\s*[CF]\b/i.test(x);
-    case 'humedad': return x.length<=70 && /\d+(?:[.,]\d+)?\s*%/.test(x);
-    case 'fuenteAlimentacion': return x.length<=80 && /(AC|DC|VAC|VDC|el[eé]ctrica|bater[ií]a|battery|red el[eé]ctrica)/i.test(x) && !looksLikeSentence(x);
-    case 'tamanoPantalla': return x.length<=55 && /\d+(?:[.,]\d+)?\s*(?:pulgadas?|\"|inch|in\b)/i.test(x);
-    case 'periodicidad': return x.length<=70 && /(mensual|trimestral|semestral|anual|cada\s+\d+\s*(?:mes|meses|año|años))/i.test(x);
-    case 'componentes': return x.length<=180 && !looksLikeSentence(x);
-    default: return true;
+function renderForm(){
+  if(!FIELDS.some(f=>(values[f.key]||'').trim())){$('form').innerHTML='<div class="empty">Todavía no hay información para revisar.</div>';updateSummary();return}
+  let html='';
+  for(const [sec,title] of Object.entries(SECTIONS)){
+    html+=`<div class="section"><h3>${esc(title)}</h3><div class="fields">`;
+    for(const f of FIELDS.filter(x=>x.section===sec)){
+      const [cl,st]=stateInfo(f.key);const v=values[f.key]||'';const isLong=['componentes','protocoloMantenimiento','recomendaciones'].includes(f.key);
+      html+=`<div class="field ${f.institutional?'manualField':''}"><label>${esc(f.label)} <span class="state ${cl}">${st}</span></label>`;
+      if(isLong)html+=`<textarea data-key="${f.key}" placeholder="N/R">${esc(v)}</textarea>`;else html+=`<input data-key="${f.key}" value="${esc(v)}" placeholder="N/R" />`;
+      const src=meta[f.key]?.fuente || (f.institutional?'Dato institucional / verificación física':'Sin fuente indicada');
+      html+=`<div class="src">Fuente: ${esc(src)}</div></div>`;
+    }
+    html+='</div></div>';
   }
+  $('form').innerHTML=html;
+  document.querySelectorAll('[data-key]').forEach(el=>el.addEventListener('input',e=>{const k=e.target.dataset.key;values[k]=e.target.value;meta[k]=meta[k]||{};meta[k].estado=FIELDS.find(x=>x.key===k)?.institutional?'manual':'revisar';meta[k].fuente=meta[k].fuente||'Edición manual';updateSummary();refreshFieldState(e.target)}));
+  updateSummary();
 }
-function rx(text,patterns){for(const p of patterns){const m=text.match(p);if(m&&m[1])return m[1].trim()}return ''}
-function filenameProductHint(name){
-  let b=(name||'').replace(/\.[^.]+$/,'').replace(/_/g,' ').replace(/^\s*\d+(?:\.\d+)*[.\- ]*/,'').trim();
-  b=b.replace(/\b(?:manual de usuario|manual usuario|user manual|manual de servicio|ficha t[eé]cnica(?: actualizada)?|registro invima|registro sanitario|carta de garant[ií]a|acta de entrega|acta de instalaci[oó]n|orden de compra|factura|signed|part\s*\d+)\b/ig,' ').replace(/\s{2,}/g,' ').trim();
-  b=b.replace(/\b(?:SP|ES|ESP|SPANISH)\b$/i,'').trim();
-  return b.length>=3&&b.length<=70?b:'';
+function refreshFieldState(el){const box=el.closest('.field');if(!box)return;const k=el.dataset.key;const [cl,st]=stateInfo(k);const badge=box.querySelector('.state');badge.className='state '+cl;badge.textContent=st}
+function updateSummary(){
+  const filled=FIELDS.filter(f=>(values[f.key]||'').trim() && values[f.key]!=='N/R').length;
+  const pending=FIELDS.length-filled;
+  const review=FIELDS.filter(f=>stateInfo(f.key)[1]==='Revisar').length;
+  const institutional=FIELDS.filter(f=>f.institutional && (values[f.key]||'').trim() && values[f.key]!=='N/R').length;
+  $('summary').textContent=`${filled}/${FIELDS.length} campos con valor · ${review} para revisar · ${pending} pendientes · ${institutional} datos institucionales diligenciados.`;
 }
-
-function dateFromFilename(name){
-  const s=(name||'').replace(/_/g,' ');
-  let m=s.match(/\b(\d{1,2})[\s._-]+(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC|JAN|APR|AUG|DEC)[A-Z]*[\s._-]+(20\d{2})\b/i);
-  if(m){const map={ENE:1,JAN:1,FEB:2,MAR:3,ABR:4,APR:4,MAY:5,JUN:6,JUL:7,AGO:8,AUG:8,SEP:9,OCT:10,NOV:11,DIC:12,DEC:12};return `${String(m[1]).padStart(2,'0')}/${String(map[m[2].slice(0,3).toUpperCase()]).padStart(2,'0')}/${m[3]}`}
-  m=s.match(/\b(20\d{2})[._-](\d{2})[._-](\d{2})\b/); if(m)return `${m[3]}/${m[2]}/${m[1]}`;
-  m=s.match(/\b(\d{1,2})[._-](\d{1,2})[._-](20\d{2})\b/); if(m)return `${String(m[1]).padStart(2,'0')}/${String(m[2]).padStart(2,'0')}/${m[3]}`;
-  return '';
-}
-function documentNumberFromFilename(name,type){
-  const b=(name||'').replace(/\.[^.]+$/,'');
-  if(type==='factura'){
-    let m=b.match(/\b(?:FC|FES|FACT(?:URA)?|OV|OC)\s*[-:#]?\s*([A-Z0-9-]{2,20})\b/i);
-    if(m)return m[0].trim();
-    m=b.match(/\b(?:OV|OC)\s*\d+\s*[-–]\s*(?:FC|FES)\s*\d+\b/i); if(m)return m[0].trim();
-  }
-  return '';
-}
-function likelyCompany(v){
-  v=cleanValue(v);
-  if(!v||v.length<3||v.length>90||looksLikeSentence(v))return '';
-  if(/^(?:cliente|direcci[oó]n|tel[eé]fono|correo|email|contacto|legal|patrocinador|representante|invoice|factura|orden)/i.test(v))return '';
-  if(/\b(?:S\.?A\.?S\.?|S\.?A\.?|LTDA\.?|LLC|INC\.?|CORP\.?|GMBH|COLOMBIA|MEDICAL|MEDICA|HEALTHCARE|BAXTER|HILLROM|HILL-ROM)\b/i.test(v))return v;
-  return '';
-}
-function technicalFallbacks(t){
-  return {
-    voltaje:rx(t,[/(?:voltaje|voltage|tensi[oó]n|input voltage|mains voltage)[^\n\d]{0,30}(\d{1,3}(?:[.,]\d+)?(?:\s*[–\-~]\s*\d{1,3}(?:[.,]\d+)?)?\s*V(?:AC|DC)?)/i,/\b(100\s*[–\-~]\s*240\s*VAC)\b/i]),
-    corriente:rx(t,[/(?:corriente|current|input current|rated current)[^\n\d]{0,30}(\d+(?:[.,]\d+)?\s*(?:mA|A))\b/i]),
-    potencia:rx(t,[/(?:potencia|power|consumo|power consumption)[^\n\d]{0,35}(\d+(?:[.,]\d+)?\s*(?:W|VA))\b/i]),
-    frecuencia:rx(t,[/(?:frecuencia|frequency|mains frequency)[^\n\d]{0,30}((?:50|60)(?:\s*[\/–\-~]\s*(?:50|60))?\s*Hz)/i,/\b(50\s*\/\s*60\s*Hz)\b/i]),
-    peso:rx(t,[/(?:peso(?: neto)?|weight|net weight)[^\n\d]{0,35}(\d+(?:[.,]\d+)?\s*(?:kg|g|lb|lbs))\b/i]),
-    temperatura:rx(t,[/(?:temperatura(?: de operaci[oó]n)?|operating temperature|temperature range)[^\n\d-]{0,35}(-?\d+(?:[.,]\d+)?\s*°?\s*[CF](?:\s*(?:a|to|–|-)\s*-?\d+(?:[.,]\d+)?\s*°?\s*[CF])?)/i]),
-    humedad:rx(t,[/(?:humedad(?: relativa)?|relative humidity|humidity)[^\n\d]{0,35}(\d+(?:[.,]\d+)?\s*%(?:\s*(?:a|to|–|-)\s*\d+(?:[.,]\d+)?\s*%)?)/i]),
-    tamanoPantalla:rx(t,[/(?:tama[nñ]o de pantalla|screen size|display size)[^\n\d]{0,30}(\d+(?:[.,]\d+)?\s*(?:pulgadas?|\"|inch|in\b))/i])
-  };
-}
-function extractRules(doc){
- const t=doc.text;
- const isTechnical=['manual','ficha','placa'].includes(doc.type);
- const isReg=doc.type==='invima';
- const isCommercial=['factura','garantia','acta_entrega','acta_instalacion','importacion'].includes(doc.type);
- const rules={
-  marca:[/(?:^|\n)\s*(?:marca|brand)\s*[:\-]\s*([^\n]{2,45})/im],
-  modelo:[/(?:^|\n)\s*(?:modelo|model|referencia|reference)\s*[:\-]\s*([^\n]{1,45})/im],
-  serie:[/(?:^|\n)\s*(?:n[úu]mero de serie|serial(?: number)?|s\/n)\s*[:\-#]*\s*([^\n]{2,50})/im],
-  fabricante:[/(?:^|\n)\s*(?:fabricante|manufacturer)\s*[:\-]\s*([^\n]{2,80})/im],
-  pais:[/(?:^|\n)\s*(?:pa[ií]s(?: de origen)?|country of origin)\s*[:\-]\s*([^\n]{2,35})/im],
-  registroSanitario:[/\b((?:20\d{2})DM-?\d{5,10})\b/i],
-  vencimientoRegistro:[/(?:^|\n)\s*(?:vencimiento|vigencia(?: hasta)?|fecha de vencimiento)\s*[:\-]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/im],
-  clasificacionRiesgo:[/(?:^|\n)\s*(?:clasificaci[oó]n(?: por)? riesgo|riesgo)\s*[:\-]\s*(I{1,3}|IV|IIa|IIb)\b/im],
-  vidaUtil:[/(?:^|\n)\s*(?:vida [uú]til|useful life)\s*[:\-]\s*(\d+(?:[.,]\d+)?\s*(?:años?|meses?|years?|months?))/im],
-  proveedor:[/(?:^|\n)\s*(?:proveedor|supplier|vendedor|vendor|raz[oó]n social)\s*[:\-]\s*([^\n]{2,100})/im],
-  telefono:[/(?:^|\n)\s*(?:tel[eé]fono|phone|tel\.)\s*[:\-]\s*([+()0-9\s\-]{7,25})/im],
-  correo:[/\b([\w.+-]+@[\w.-]+\.[A-Za-z]{2,})\b/i],
-  numeroDocumento:[/(?:^|\n)\s*(?:factura|invoice|orden de compra|oc)\s*(?:n[°ºo.]*)?\s*[:#\-]?\s*([A-Z0-9._\-/ ]{3,35})/im],
-  costo:[/(?:^|\n)\s*(?:valor total|valor equipo|costo|total)\s*[:$\- ]*\s*(\$?\s*[0-9.]{4,}(?:,[0-9]{1,2})?)/im],
-  garantia:[/(?:^|\n)\s*(?:garant[ií]a|warranty)\s*[:\-]\s*([^\n]{2,80})/im],
-  voltaje:[/(?:^|\n)\s*(?:voltaje|voltage|tensi[oó]n de alimentaci[oó]n|rated voltage)\s*[:\-]?\s*(\d{1,3}(?:[.,]\d+)?(?:\s*[–\-~]\s*\d{1,3}(?:[.,]\d+)?)?\s*V(?:AC|DC)?)/im, /\b(\d{2,3}\s*[–\-]\s*\d{2,3}\s*VAC)\b/i],
-  corriente:[/(?:^|\n)\s*(?:corriente|current|rated current)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:mA|A))\b/im],
-  potencia:[/(?:^|\n)\s*(?:potencia|power consumption|rated power)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:W|VA))\b/im],
-  frecuencia:[/(?:^|\n)\s*(?:frecuencia|frequency)\s*[:\-]?\s*((?:50|60)(?:\s*[\/–\-~]\s*(?:50|60))?\s*Hz)/im],
-  peso:[/(?:^|\n)\s*(?:peso(?: neto)?|weight|net weight)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:kg|g|lb|lbs))\b/im],
-  dimensiones:[/(?:^|\n)\s*(?:dimensiones|dimensions|dimension)\s*[:\-]?\s*([^\n]{3,110})/im],
-  bateria:[/(?:^|\n)\s*(?:bater[ií]a(?: interna)?|battery)\s*[:\-]?\s*([^\n]{3,110})/im],
-  temperatura:[/(?:^|\n)\s*(?:temperatura(?: de operaci[oó]n)?|operating temperature)\s*[:\-]?\s*([^\n]{3,70})/im],
-  humedad:[/(?:^|\n)\s*(?:humedad(?: relativa)?|relative humidity|humidity)\s*[:\-]?\s*([^\n]{3,70})/im],
-  fuenteAlimentacion:[/(?:^|\n)\s*(?:fuente de alimentaci[oó]n|power supply|alimentaci[oó]n el[eé]ctrica)\s*[:\-]?\s*([^\n]{3,80})/im],
-  tamanoPantalla:[/(?:^|\n)\s*(?:tama[nñ]o de pantalla|screen size|display size)\s*[:\-]?\s*([^\n]{2,55})/im],
-  periodicidad:[/(?:^|\n)\s*(?:periodicidad|frecuencia de mantenimiento|maintenance interval)\s*[:\-]?\s*([^\n]{2,70})/im]
- };
- const allowed={
-   registroSanitario:isReg||doc.type==='importacion', vencimientoRegistro:isReg, clasificacionRiesgo:isReg,
-   voltaje:isTechnical, corriente:isTechnical, potencia:isTechnical, frecuencia:isTechnical, peso:isTechnical, dimensiones:isTechnical, bateria:isTechnical, temperatura:isTechnical, humedad:isTechnical, fuenteAlimentacion:isTechnical, tamanoPantalla:isTechnical,
-   proveedor:isCommercial, numeroDocumento:isCommercial, costo:doc.type==='factura', garantia:doc.type==='garantia'||doc.type==='factura', telefono:isCommercial, correo:isCommercial,
-   marca:true, modelo:true, serie:doc.type==='placa'||doc.type==='acta_entrega'||doc.type==='acta_instalacion', fabricante:isReg||isTechnical||doc.type==='importacion', pais:isReg||doc.type==='importacion'||doc.type==='ficha', vidaUtil:isReg||doc.type==='ficha'||doc.type==='manual', periodicidad:isTechnical
- };
- for(const [k,ps] of Object.entries(rules)){
-   if(allowed[k]===false) continue;
-   const v=rx(t,ps);
-   if(v){let conf=.86;if(isReg&&['registroSanitario','vencimientoRegistro','clasificacionRiesgo'].includes(k))conf=.99;if(doc.type==='ficha'&&['voltaje','corriente','potencia','frecuencia','peso','dimensiones','bateria'].includes(k))conf=.93;addCandidate(k,v,doc,conf)}
- }
- // Nombre: solo etiquetas explícitas, nunca frases genéricas.
- let n=rx(t,[/(?:^|\n)\s*(?:nombre del dispositivo|nombre del producto|device name|producto)\s*[:\-]\s*([^\n]{3,100})/im]);
- if(n && !looksLikeSentence(n)) addCandidate('nombre',n,doc,isReg?.95:.85);
- // País solo "Made in/Fabricado en" y valor corto.
- let p=rx(t,[/(?:fabricado en|made in)\s*[:\-]?\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ .-]{3,35})/i]);
- if(p)addCandidate('pais',p,doc,.88);
- // Componentes: solo encabezado explícito y texto corto.
- let comp=rx(t,[/(?:^|\n)\s*(?:componentes y accesorios|accesorios incluidos|included accessories)\s*[:\-]?\s*([^\n]{3,180})/im]);
- if(comp)addCandidate('componentes',comp,doc,.78);
-
- // Rescate técnico cuando el PDF perdió los saltos de línea pero conserva la etiqueta cerca del valor.
- if(isTechnical){
-   const fb=technicalFallbacks(t);
-   for(const [k,v] of Object.entries(fb)) if(v){ if(['temperatura','humedad'].includes(k) && doc.type!=='ficha') continue; addCandidate(k,v,doc,doc.type==='ficha'?.91:.87); }
-   let dim=rx(t,[/(?:dimensiones|dimensions|overall dimensions)[^\n]{0,45}((?:\d+(?:[.,]\d+)?\s*(?:mm|cm|m|in|pulg)?\s*[x×]\s*){1,2}\d+(?:[.,]\d+)?\s*(?:mm|cm|m|in|pulg))/i]);
-   if(dim)addCandidate('dimensiones',dim,doc,doc.type==='ficha'?.92:.86);
-   let bat=rx(t,[/(?:bater[ií]a|battery)[^\n]{0,25}((?:\d+(?:[.,]\d+)?\s*(?:V|VDC|Ah|mAh)[^\n,;]*){1,2})/i]);
-   if(bat)addCandidate('bateria',bat,doc,.86);
- }
-
- // Pistas del nombre de archivo: útiles para producto/modelo, pero siempre quedan como "Revisar".
- const hint=filenameProductHint(doc.name);
- if(hint){
-   let mh=hint.replace(/^cama\s+/i,'').trim();
-   if(/\baffinity\b/i.test(mh)){
-     const m=mh.match(/\bAffinity(?:\s*4)?\b/i); if(m)addCandidate('modelo',m[0],doc,.74);
-     if(/^cama\b/i.test(hint))addCandidate('nombre',hint,doc,.72);
-   }
- }
-
-
- // Metadatos del nombre del archivo: fechas y números documentales son mucho más confiables que palabras aisladas del cuerpo.
- const fileDate=dateFromFilename(doc.name);
- if(fileDate){
-   if(doc.type==='acta_entrega') addCandidate('actaRecibo',fileDate,doc,.94);
-   if(doc.type==='acta_instalacion') addCandidate('fechaInstalacion',fileDate,doc,.94);
-   if(doc.type==='garantia') addCandidate('garantia',`Documento fechado ${fileDate}`,doc,.72);
-   if(doc.type==='factura') addCandidate('fechaCompra',fileDate,doc,.76);
- }
- const fileNum=documentNumberFromFilename(doc.name,doc.type);
- if(fileNum)addCandidate('numeroDocumento',fileNum,doc,.93);
-
- // Proveedor: solo tomar una razón social explícita de documentos comerciales; nunca inferirlo desde un email.
- if(isCommercial){
-   let pv=rx(t,[/(?:^|\n)\s*(?:proveedor|supplier|vendedor|vendor|raz[oó]n social)\s*[:\-]\s*([^\n]{2,100})/im]);
-   if(pv){pv=likelyCompany(pv)||''; if(pv)addCandidate('proveedor',pv,doc,.90)}
- }
-
- // Fabricante corporativo: acepta líneas cortas con forma de razón social cerca de la etiqueta, descarta encabezados legales.
- let mf2=rx(t,[/(?:^|\n)\s*(?:fabricante|manufacturer|manufactured by|fabricado por)\s*[:\-]?\s*([^\n]{2,90})/im]);
- if(mf2){const c=likelyCompany(mf2)||mf2; if(validateField('fabricante',c,doc))addCandidate('fabricante',c,doc,.90)}
- // Marcas/fabricantes muy explícitos en encabezados o avisos corporativos.
- const knownBrand=rx(t,[/\b(Hill[ -]?Rom|Baxter|Mindray|Dr[aä]ger|Siemens|GE Healthcare|Stryker|Philips|Edan|Aeonmed|Carestream|Olympus|Pentax|Medtronic)\b/i]);
- if(knownBrand)addCandidate('marca',knownBrand,doc,.82);
- let mf=rx(t,[/(?:manufactured by|fabricado por|fabricante)\s*[:\-]?\s*([^\n]{2,80})/i]);
- if(mf)addCandidate('fabricante',mf,doc,.88);
-}
-function chooseAll(){for(const f of FIELDS){const arr=(candidates[f.key]||[]).slice().sort((a,b)=>b.priority-a.priority||b.confidence-a.confidence);if(!selected[f.key]&&arr.length)selected[f.key]=arr[0].value}}
-function stateFor(k){const arr=(candidates[k]||[]).slice().sort((a,b)=>b.priority-a.priority||b.confidence-a.confidence);const vals=[...new Set(arr.map(x=>x.value.toLowerCase()))];if(!selected[k])return ['bad','Pendiente'];const top=arr.find(x=>x.value===selected[k])||arr[0];if(vals.length>1||!top||top.confidence<.90)return ['warn','Revisar'];return ['ok','Confirmado']}
-function renderDocs(){const el=$('docs');if(!docs.length){el.innerHTML='<div class="meta">Sin documentos cargados.</div>';return}el.innerHTML=docs.map(d=>`<div class="doc"><div class="docname">${esc(d.name)}</div><span class="badge ${d.text?'ok':'warn'}">${esc(d.type.replaceAll('_',' '))}</span><div class="meta">${d.text?d.text.length.toLocaleString()+' caracteres extraídos':'Sin texto extraído'}</div></div>`).join('')}
-function renderForm(){if(!FIELDS.some(f=>selected[f.key]||(candidates[f.key]||[]).length)){ $('form').innerHTML='<div class="empty">No se han encontrado campos todavía.</div>';return}
- let html='';for(const [sec,title] of Object.entries(sections)){html+=`<div class="section"><h3>${title}</h3><div class="fields">`;for(const f of FIELDS.filter(x=>x.section===sec)){const arr=(candidates[f.key]||[]).slice().sort((a,b)=>b.priority-a.priority);const [cl,st]=stateFor(f.key);html+=`<div class="field"><label>${esc(f.label)} <span class="state ${cl}">${st}</span></label>`;
- if(arr.length>1){html+=`<select data-key="${f.key}" class="candidate"><option value="">-- seleccionar --</option>${arr.map(c=>`<option value="${esc(c.value)}" ${selected[f.key]===c.value?'selected':''}>${esc(c.value)} · ${esc(c.type)}</option>`).join('')}</select>`}else{html+=`<input data-key="${f.key}" value="${esc(selected[f.key]||'')}" placeholder="N/R" />`}
- const src=arr.find(x=>x.value===selected[f.key])||arr[0];html+=`<div class="src">${src?'Fuente: '+esc(src.doc):'Sin fuente documental'}</div></div>`}html+='</div></div>'} $('form').innerHTML=html;
- document.querySelectorAll('[data-key]').forEach(el=>el.addEventListener('input',e=>{selected[e.target.dataset.key]=e.target.value;updateSummary()}));updateSummary();}
-function updateSummary(){const filled=FIELDS.filter(f=>selected[f.key]).length;const conflicts=FIELDS.filter(f=>new Set((candidates[f.key]||[]).map(c=>c.value.toLowerCase())).size>1).length;$('summary').textContent=`${docs.length} documento(s) · ${filled}/${FIELDS.length} campos con valor · ${conflicts} campo(s) con posibles discrepancias.`}
-async function processFiles(fileList){for(const file of fileList){const holder={name:file.name,type:'otro',text:'',file};docs.push(holder);renderDocs();try{const r=await extractFile(file);holder.text=r.text||'';holder.pages=r.pages;holder.type=classify(file.name,holder.text);extractRules(holder)}catch(e){holder.error=e.message}renderDocs()}chooseAll();renderForm()}
-$('files').addEventListener('change',e=>processFiles(e.target.files));$('drop').addEventListener('click',()=>$('files').click());['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{$('drop').classList.remove('drag')}));$('drop').addEventListener('drop',e=>{e.preventDefault();processFiles(e.dataTransfer.files)});
-$('photo').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;photoData={name:f.name,buffer:await f.arrayBuffer(),type:f.type};$('photoInfo').textContent='Foto seleccionada: '+f.name});
-$('autoExtract').onclick=()=>{candidates={};selected={};docs.forEach(extractRules);chooseAll();renderForm()};
-$('clearAll').onclick=()=>{docs=[];candidates={};selected={};photoData=null;renderDocs();renderForm();updateSummary();$('photoInfo').textContent='Sin fotografía seleccionada.'};
-$('saveDraft').onclick=()=>{localStorage.setItem('hv_biomedica_draft',JSON.stringify({selected,candidates,docs:docs.map(({name,type,text})=>({name,type,text}))}));$('genStatus').textContent='Borrador guardado en este navegador.'};
-$('restoreDraft').onclick=()=>{try{const d=JSON.parse(localStorage.getItem('hv_biomedica_draft'));if(!d)throw 0;selected=d.selected||{};candidates=d.candidates||{};docs=d.docs||[];renderDocs();renderForm()}catch{$('genStatus').textContent='No hay borrador disponible.'}};
-$('pasteJson').onclick=()=>$('jsonDialog').showModal();$('cancelJson').onclick=()=>$('jsonDialog').close();$('applyJson').onclick=()=>{try{const o=JSON.parse($('jsonText').value);for(const f of FIELDS)if(o[f.key]!=null&&String(o[f.key]).trim()){selected[f.key]=String(o[f.key]).trim();addCandidate(f.key,selected[f.key],{name:'JSON Copilot',type:'otro'},.9)}renderForm();$('jsonDialog').close()}catch(e){alert('JSON no válido. Revisa que empiece con { y termine con }.')}};
-async function loadTemplate(){try{const r=await fetch(TEMPLATE_URL,{cache:'no-store'});if(!r.ok)throw 0;return await r.arrayBuffer()}catch{throw new Error('No se encontró Hoja_de_vida_maestra.xlsx junto al HTML. Sube ambos archivos al mismo repositorio.')}}
-function setSafe(ws,cell,val){if(val==null||String(val).trim()==='')return;ws.getCell(cell).value=String(val)}
-$('generate').onclick=async()=>{try{$('generate').disabled=true;$('genStatus').textContent='Generando archivo...';const buf=await loadTemplate();const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.getWorksheet('Hoja1')||wb.worksheets[0];for(const f of FIELDS)setSafe(ws,f.cell,selected[f.key]);
- if(photoData){const ext=(photoData.type||'image/jpeg').includes('png')?'png':'jpeg';const id=wb.addImage({buffer:photoData.buffer,extension:ext});ws.addImage(id,{tl:{col:0,row:3},br:{col:10,row:15},editAs:'oneCell'});}
- const model=(selected.modelo||'SIN_MODELO').replace(/[\\/:*?"<>|]/g,'-');const out=await wb.xlsx.writeBuffer();saveAs(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`HV - ${model}.xlsx`);$('genStatus').textContent='Excel generado. Revisa los campos antes de archivarlo.'}catch(e){console.error(e);$('genStatus').textContent='Error: '+e.message}finally{$('generate').disabled=false}};
-renderDocs();
+function cleanJsonText(txt){return txt.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim()}
+$('pasteJson').onclick=()=>{$('jsonError').textContent='';$('jsonDialog').showModal()};
+$('cancelJson').onclick=()=>$('jsonDialog').close();
+$('applyJson').onclick=()=>{try{const obj=JSON.parse(cleanJsonText($('jsonText').value));const {out,m}=normalizeImported(obj);values={...values,...out};meta={...meta,...m};renderForm();$('jsonDialog').close();const count=Object.values(out).filter(v=>v&&v!=='N/R').length;$('importStatus').textContent=`JSON importado: ${count} campos con información.`;}catch(e){$('jsonError').textContent='JSON no válido. Copia desde la primera { hasta la última }. Si Copilot usa un bloque de código, puedes pegarlo completo: el aplicativo elimina las marcas ```json automáticamente.'}};
+$('photo').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;photoData={name:f.name,buffer:await f.arrayBuffer(),type:f.type};$('photoInfo').textContent='Foto seleccionada: '+f.name;const u=URL.createObjectURL(f);$('photoPreview').src=u;$('photoPreview').style.display='block'});
+$('clearAll').onclick=()=>{if(!confirm('¿Limpiar todos los datos y la fotografía?'))return;values={};meta={};photoData=null;$('jsonText').value='';$('photo').value='';$('photoPreview').style.display='none';$('photoInfo').textContent='Sin fotografía seleccionada.';$('importStatus').textContent='Sin JSON importado.';renderForm();$('genStatus').textContent=''};
+$('saveDraft').onclick=()=>{localStorage.setItem('hv_json_draft',JSON.stringify({values,meta}));$('genStatus').textContent='Borrador guardado en este navegador.'};
+$('restoreDraft').onclick=()=>{try{const d=JSON.parse(localStorage.getItem('hv_json_draft'));if(!d)throw 0;values=d.values||{};meta=d.meta||{};renderForm();$('genStatus').textContent='Borrador restaurado.'}catch{$('genStatus').textContent='No hay borrador guardado.'}};
+$('markReviewed').onclick=()=>{for(const f of FIELDS){const v=(values[f.key]||'').trim();if(v&&v!=='N/R'&&!f.institutional){meta[f.key]=meta[f.key]||{};meta[f.key].estado='confirmado';meta[f.key].fuente=meta[f.key].fuente||'Revisión Ingeniería Biomédica'}}renderForm()};
+function reviewedJson(){const o={};for(const f of FIELDS)o[f.key]={valor:(values[f.key]||'N/R').trim()||'N/R',fuente:meta[f.key]?.fuente||'',estado:stateInfo(f.key)[1].toLowerCase()};return o}
+$('downloadJson').onclick=()=>{const blob=new Blob([JSON.stringify(reviewedJson(),null,2)],{type:'application/json;charset=utf-8'});saveAs(blob,`HV_${(values.modelo||'equipo').replace(/[^a-z0-9_-]+/gi,'_')}_revisada.json`)};
+async function loadTemplate(){const r=await fetch(TEMPLATE_URL,{cache:'no-store'});if(!r.ok)throw new Error('No se encontró Hoja_de_vida_maestra.xlsx junto al HTML.');return await r.arrayBuffer()}
+function setSafe(ws,cell,val){const v=(val??'').toString().trim();ws.getCell(cell).value=v||'N/R'}
+$('generate').onclick=async()=>{try{$('generate').disabled=true;$('genStatus').textContent='Generando archivo...';const buf=await loadTemplate();const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.getWorksheet('Hoja1')||wb.worksheets[0];for(const f of FIELDS)setSafe(ws,f.cell,values[f.key]);
+  if(photoData){const ext=(photoData.type||'image/jpeg').includes('png')?'png':'jpeg';const id=wb.addImage({buffer:photoData.buffer,extension:ext});ws.addImage(id,{tl:{col:0,row:3},br:{col:10,row:15},editAs:'oneCell'});}
+  const model=(values.modelo||'SIN_MODELO').replace(/[\\/:*?"<>|]/g,'-');const out=await wb.xlsx.writeBuffer();saveAs(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`HV - ${model}.xlsx`);$('genStatus').textContent='Excel generado. Revisa el archivo antes de archivarlo.';
+}catch(e){console.error(e);$('genStatus').textContent='Error: '+e.message}finally{$('generate').disabled=false}};
+const PROMPT=`Eres un asistente especializado en Ingeniería Biomédica. Vas a analizar la documentación de UN SOLO equipo biomédico para preparar su hoja de vida institucional.\n\nIMPORTANTE SOBRE LOS LOTES:\n- El usuario puede adjuntar máximo 3 archivos por vez.\n- Puede enviarte varios lotes en esta misma conversación.\n- Conserva y consolida la información de todos los lotes del mismo equipo.\n- No generes el JSON final hasta que el usuario escriba exactamente: GENERAR PARA APLICATIVO.\n\nREGLAS DE VALIDACIÓN:\n1. No inventes ni completes por lógica.\n2. Si un dato no aparece o no puede verificarse, usa N/R.\n3. Si dos fuentes contradicen un dato, usa estado \"revisar\" y explica en \"fuente\" cuáles documentos discrepan.\n4. Para registro sanitario, riesgo y vencimiento, prioriza INVIMA.\n5. Para voltaje, corriente, potencia, frecuencia, dimensiones, peso, batería, temperatura y humedad, prioriza ficha técnica y manual oficial.\n6. Para factura, costo, proveedor, fecha de compra y garantía, prioriza factura/orden de compra/carta de garantía.\n7. Para serie, inventario, ubicación e inicio de operación, no uses un manual general. Déjalos N/R si no aparecen en documentación específica del activo.\n8. Diferencia accesorios compatibles de accesorios realmente entregados.\n\nCUANDO EL USUARIO ESCRIBA \"GENERAR PARA APLICATIVO\":\nDevuelve ÚNICAMENTE un objeto JSON válido. No uses Markdown, no uses bloques de código y no escribas explicaciones antes ni después.\n\nPara CADA propiedad usa esta estructura:\n\"campo\": {\"valor\":\"...\",\"fuente\":\"nombre del documento o documentos\",\"estado\":\"confirmado|revisar|pendiente\"}\n\nUsa EXACTAMENTE estas propiedades, sin agregar ni omitir ninguna:\n${FIELDS.map(f=>`\"${f.key}\": {\"valor\":\"\",\"fuente\":\"\",\"estado\":\"pendiente\"}`).join(',\n')}\n\nCriterio de estado:\n- confirmado: el valor aparece de forma clara y coherente en una fuente adecuada.\n- revisar: existe duda, discrepancia o el valor requiere validación biomédica.\n- pendiente: valor N/R o no disponible.\n\nConserva unidades originales y fechas en formato DD/MM/AAAA cuando sea posible.`;
+$('promptText').value=PROMPT;
+async function copyPrompt(){try{await navigator.clipboard.writeText(PROMPT);$('copyStatus').textContent='Prompt copiado al portapapeles.'}catch{$('promptText').select();document.execCommand('copy');$('copyStatus').textContent='Prompt copiado.'}}
+$('copyPrompt').onclick=()=>{$('promptDialog').showModal()};$('closePrompt').onclick=()=>$('promptDialog').close();$('copyPromptInside').onclick=copyPrompt;
+renderForm();
 </script>
-</body></html>
+</body>
+</html>
