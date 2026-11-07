@@ -58,7 +58,7 @@
     <main class="card">
       <h2>Revisión de información</h2>
       <div class="toolbar"><button class="btn secondary" id="autoExtract">Reanalizar documentos</button><button class="btn ghost" id="restoreDraft">Restaurar borrador</button></div>
-      <div class="statusline" id="summary">Carga documentos para comenzar.</div>
+      <div class="statusline" id="summary">Carga documentos para comenzar. Modo conservador: solo se completan valores con patrón técnico válido; ante duda se deja N/R.</div>
       <div id="form"><div class="empty">Todavía no hay información para revisar.</div></div>
     </main>
   </div>
@@ -88,27 +88,113 @@ async function extractPDF(file){const buf=await file.arrayBuffer();const pdf=awa
 async function ocrImage(file){const r=await Tesseract.recognize(file,'spa+eng',{logger:m=>{}});return normalize(r.data.text);}
 async function extractDocx(file){const r=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return normalize(r.value)}
 async function extractFile(file){const ext=file.name.split('.').pop().toLowerCase();if(ext==='pdf')return await extractPDF(file);if(ext==='docx')return {text:await extractDocx(file)};if(['jpg','jpeg','png','webp'].includes(ext))return {text:await ocrImage(file)};if(ext==='txt')return {text:normalize(await file.text())};return {text:''};}
-function addCandidate(key,value,doc,confidence=0.75){value=normalize(value).replace(/^[:\-\s]+|[;,.\s]+$/g,'');if(!value||value.length>800)return;if(!candidates[key])candidates[key]=[];if(!candidates[key].some(c=>c.value.toLowerCase()===value.toLowerCase())) candidates[key].push({value,doc:doc.name,type:doc.type,confidence,priority:PRIORITY[doc.type]||40});}
+function cleanValue(value){
+  let v=normalize(value).replace(/^[:\-–—\s]+|[;,.\s]+$/g,'');
+  // corta cuando otra etiqueta probable empieza en la misma línea
+  v=v.replace(/\s{2,}(?:marca|modelo|model|referencia|fabricante|manufacturer|pa[ií]s|serie|serial|voltaje|voltage|corriente|current|potencia|power|frecuencia|frequency|peso|weight|dimensiones|dimensions|bater[ií]a|battery|temperatura|temperature|humedad|humidity)\s*[:\-].*$/i,'').trim();
+  return v;
+}
+function looksLikeSentence(v){return /[.!?].{12,}/.test(v)||v.split(/\s+/).length>16}
+function addCandidate(key,value,doc,confidence=0.75){
+  value=cleanValue(value);
+  if(!value||value.length>180)return;
+  if(!validateField(key,value,doc))return;
+  if(!candidates[key])candidates[key]=[];
+  if(!candidates[key].some(c=>c.value.toLowerCase()===value.toLowerCase())) candidates[key].push({value,doc:doc.name,type:doc.type,confidence,priority:PRIORITY[doc.type]||40});
+}
+function validateField(key,v,doc){
+  const x=v.trim();
+  const bad=/confidencial|uso interno|advertencia|no use|manual de usuario|orden de compra|asunto:|secadora|anestesia|página \d|page \d/i;
+  if(bad.test(x)) return false;
+  switch(key){
+    case 'marca': return x.length<=45 && !looksLikeSentence(x) && !/\d{4,}/.test(x);
+    case 'modelo': return x.length<=45 && !looksLikeSentence(x) && !/^(orden|carta|factura|registro|manual)\b/i.test(x);
+    case 'serie': return x.length<=50 && !looksLikeSentence(x) && /[A-Z0-9]/i.test(x) && !/etiqueta|ubicada|armaz[oó]n/i.test(x);
+    case 'fabricante': return x.length<=80 && !looksLikeSentence(x);
+    case 'pais': return x.length<=35 && !looksLikeSentence(x) && /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ .-]+$/.test(x);
+    case 'registroSanitario': return /(?:20\d{2})DM-?\d{5,10}/i.test(x);
+    case 'vencimientoRegistro': return /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(x);
+    case 'clasificacionRiesgo': return /^(?:I|IIA|IIB|II|III|IV)$/i.test(x.replace(/\s/g,''));
+    case 'vidaUtil': return /^\d+(?:[.,]\d+)?\s*(?:año|años|mes|meses|year|years)$/i.test(x);
+    case 'telefono': return /^[+()0-9\s\-]{7,25}$/.test(x);
+    case 'correo': return /^[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(x);
+    case 'numeroDocumento': return x.length<=35 && /^[A-Z0-9._\-/ ]+$/i.test(x);
+    case 'costo': return /^[0-9.$\s,]+$/.test(x) && /\d/.test(x);
+    case 'garantia': return x.length<=80 && !looksLikeSentence(x) && /(mes|meses|año|años|year|years|desde|hasta|vigencia)/i.test(x);
+    case 'voltaje': return /\b\d{1,3}(?:[.,]\d+)?(?:\s*[–\-~]\s*\d{1,3}(?:[.,]\d+)?)?\s*V(?:AC|DC)?\b/i.test(x);
+    case 'corriente': return /\b\d+(?:[.,]\d+)?\s*(?:mA|A)\b/i.test(x);
+    case 'potencia': return /\b\d+(?:[.,]\d+)?\s*(?:W|VA)\b/i.test(x);
+    case 'frecuencia': return /\b(?:50|60)(?:\s*[\/–\-~]\s*(?:50|60))?\s*Hz\b/i.test(x);
+    case 'peso': return /\b\d+(?:[.,]\d+)?\s*(?:kg|g|lb|lbs)\b/i.test(x) && x.length<=55;
+    case 'dimensiones': return x.length<=110 && /\d/.test(x) && /(?:mm|cm|m\b|in\b|pulg|inch|×|x\s*\d)/i.test(x);
+    case 'bateria': return x.length<=110 && /(bater[ií]a|battery|iones? de litio|lithium|NiMH|NiCd|plomo)/i.test(x) && /\d/.test(x);
+    case 'temperatura': return x.length<=70 && /-?\d+(?:[.,]\d+)?\s*°?\s*[CF]\b/i.test(x);
+    case 'humedad': return x.length<=70 && /\d+(?:[.,]\d+)?\s*%/.test(x);
+    case 'fuenteAlimentacion': return x.length<=80 && /(AC|DC|VAC|VDC|el[eé]ctrica|bater[ií]a|battery|red el[eé]ctrica)/i.test(x) && !looksLikeSentence(x);
+    case 'tamanoPantalla': return x.length<=55 && /\d+(?:[.,]\d+)?\s*(?:pulgadas?|\"|inch|in\b)/i.test(x);
+    case 'periodicidad': return x.length<=70 && /(mensual|trimestral|semestral|anual|cada\s+\d+\s*(?:mes|meses|año|años))/i.test(x);
+    case 'componentes': return x.length<=180 && !looksLikeSentence(x);
+    default: return true;
+  }
+}
 function rx(text,patterns){for(const p of patterns){const m=text.match(p);if(m&&m[1])return m[1].trim()}return ''}
-function extractRules(doc){const t=doc.text; const line='[^\\n]{1,140}';
+function extractRules(doc){
+ const t=doc.text;
+ const isTechnical=['manual','ficha','placa'].includes(doc.type);
+ const isReg=doc.type==='invima';
+ const isCommercial=['factura','garantia','acta_entrega','acta_instalacion','importacion'].includes(doc.type);
  const rules={
-  marca:[/(?:marca|brand)\s*[:\-]\s*([^\n]{2,80})/i], modelo:[/(?:modelo|model|referencia|reference)\s*[:\-]\s*([^\n]{1,80})/i], serie:[/(?:n[úu]mero de serie|serial(?: number)?|s\/n)\s*[:\-#]*\s*([^\n]{2,80})/i], fabricante:[/(?:fabricante|manufacturer)\s*[:\-]\s*([^\n]{2,120})/i], pais:[/(?:pa[ií]s(?: de origen)?|country of origin)\s*[:\-]\s*([^\n]{2,80})/i],
-  registroSanitario:[/\b((?:20\d{2})DM-?\d{5,9})\b/i,/(?:registro sanitario(?: invima)?|registro invima)\s*[:\-]?\s*([^\n]{4,80})/i], vencimientoRegistro:[/(?:vencimiento|vigencia(?: hasta)?|fecha de vencimiento)\s*[:\-]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i], clasificacionRiesgo:[/(?:clasificaci[oó]n(?: por)? riesgo|riesgo)\s*[:\-]\s*(I{1,3}|IV|IIa|IIb|IIB|IIA)\b/i], vidaUtil:[/(?:vida [uú]til|useful life)\s*[:\-]\s*([^\n]{1,50})/i],
-  proveedor:[/(?:proveedor|supplier)\s*[:\-]\s*([^\n]{2,120})/i], telefono:[/(?:tel[eé]fono|phone|tel\.)\s*[:\-]\s*([+()0-9\s\-]{7,30})/i], correo:[/([\w.+-]+@[\w.-]+\.[A-Za-z]{2,})/i], numeroDocumento:[/(?:factura|invoice|orden de compra|oc)\s*(?:n[°ºo.]*)?\s*[:#\-]?\s*([A-Z0-9-]{3,30})/i], costo:[/(?:valor total|valor equipo|costo|total)\s*[:$\- ]*\s*\$?\s*([0-9.]{4,}(?:,[0-9]{1,2})?)/i], garantia:[/(?:garant[ií]a|warranty)\s*[:\-]\s*([^\n]{2,100})/i],
-  voltaje:[/(?:voltaje|voltage|input)\s*[:\-]?\s*([0-9]{2,3}(?:\s*[–\-~]\s*[0-9]{2,3})?\s*V(?:AC|DC|\s*AC|\s*DC)?)/i,/\b([0-9]{2,3}(?:\s*[–\-~]\s*[0-9]{2,3})?\s*VAC)\b/i], corriente:[/(?:corriente|current)\s*[:\-]?\s*([0-9.,]+\s*(?:m?A))\b/i], potencia:[/(?:potencia|power consumption|rated power)\s*[:\-]?\s*([0-9.,]+\s*(?:W|VA))\b/i], frecuencia:[/(?:frecuencia|frequency)\s*[:\-]?\s*([0-9]{2,3}(?:\s*[–\-~]\s*[0-9]{2,3})?\s*Hz)/i,/\b((?:50|60)\s*[/–\-]\s*(?:50|60)\s*Hz)\b/i],
-  peso:[/(?:peso(?: neto)?|weight)\s*[:\-]?\s*([0-9.,]+\s*(?:kg|g|lb))\b/i], dimensiones:[/(?:dimensiones|dimensions|dimension)\s*[:\-]?\s*([^\n]{3,100})/i], bateria:[/(?:bater[ií]a(?: interna)?|battery)\s*[:\-]?\s*([^\n]{3,120})/i], temperatura:[/(?:temperatura(?: de operaci[oó]n)?|operating temperature)\s*[:\-]?\s*([^\n]{3,80})/i], humedad:[/(?:humedad(?: relativa)?|relative humidity|humidity)\s*[:\-]?\s*([^\n]{3,80})/i],
-  fuenteAlimentacion:[/(?:fuente de alimentaci[oó]n|power supply)\s*[:\-]?\s*([^\n]{3,100})/i], tamanoPantalla:[/(?:pantalla|display|screen)\s*[:\-]?\s*([^\n]{2,80})/i], periodicidad:[/(?:periodicidad|frecuencia de mantenimiento|maintenance interval)\s*[:\-]?\s*([^\n]{2,80})/i]
+  marca:[/(?:^|\n)\s*(?:marca|brand)\s*[:\-]\s*([^\n]{2,45})/im],
+  modelo:[/(?:^|\n)\s*(?:modelo|model|referencia|reference)\s*[:\-]\s*([^\n]{1,45})/im],
+  serie:[/(?:^|\n)\s*(?:n[úu]mero de serie|serial(?: number)?|s\/n)\s*[:\-#]*\s*([^\n]{2,50})/im],
+  fabricante:[/(?:^|\n)\s*(?:fabricante|manufacturer)\s*[:\-]\s*([^\n]{2,80})/im],
+  pais:[/(?:^|\n)\s*(?:pa[ií]s(?: de origen)?|country of origin)\s*[:\-]\s*([^\n]{2,35})/im],
+  registroSanitario:[/\b((?:20\d{2})DM-?\d{5,10})\b/i],
+  vencimientoRegistro:[/(?:^|\n)\s*(?:vencimiento|vigencia(?: hasta)?|fecha de vencimiento)\s*[:\-]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/im],
+  clasificacionRiesgo:[/(?:^|\n)\s*(?:clasificaci[oó]n(?: por)? riesgo|riesgo)\s*[:\-]\s*(I{1,3}|IV|IIa|IIb)\b/im],
+  vidaUtil:[/(?:^|\n)\s*(?:vida [uú]til|useful life)\s*[:\-]\s*(\d+(?:[.,]\d+)?\s*(?:años?|meses?|years?|months?))/im],
+  proveedor:[/(?:^|\n)\s*(?:proveedor|supplier)\s*[:\-]\s*([^\n]{2,100})/im],
+  telefono:[/(?:^|\n)\s*(?:tel[eé]fono|phone|tel\.)\s*[:\-]\s*([+()0-9\s\-]{7,25})/im],
+  correo:[/\b([\w.+-]+@[\w.-]+\.[A-Za-z]{2,})\b/i],
+  numeroDocumento:[/(?:^|\n)\s*(?:factura|invoice|orden de compra|oc)\s*(?:n[°ºo.]*)?\s*[:#\-]?\s*([A-Z0-9._\-/ ]{3,35})/im],
+  costo:[/(?:^|\n)\s*(?:valor total|valor equipo|costo|total)\s*[:$\- ]*\s*(\$?\s*[0-9.]{4,}(?:,[0-9]{1,2})?)/im],
+  garantia:[/(?:^|\n)\s*(?:garant[ií]a|warranty)\s*[:\-]\s*([^\n]{2,80})/im],
+  voltaje:[/(?:^|\n)\s*(?:voltaje|voltage|tensi[oó]n de alimentaci[oó]n|rated voltage)\s*[:\-]?\s*(\d{1,3}(?:[.,]\d+)?(?:\s*[–\-~]\s*\d{1,3}(?:[.,]\d+)?)?\s*V(?:AC|DC)?)/im, /\b(\d{2,3}\s*[–\-]\s*\d{2,3}\s*VAC)\b/i],
+  corriente:[/(?:^|\n)\s*(?:corriente|current|rated current)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:mA|A))\b/im],
+  potencia:[/(?:^|\n)\s*(?:potencia|power consumption|rated power)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:W|VA))\b/im],
+  frecuencia:[/(?:^|\n)\s*(?:frecuencia|frequency)\s*[:\-]?\s*((?:50|60)(?:\s*[\/–\-~]\s*(?:50|60))?\s*Hz)/im],
+  peso:[/(?:^|\n)\s*(?:peso(?: neto)?|weight|net weight)\s*[:\-]?\s*(\d+(?:[.,]\d+)?\s*(?:kg|g|lb|lbs))\b/im],
+  dimensiones:[/(?:^|\n)\s*(?:dimensiones|dimensions|dimension)\s*[:\-]?\s*([^\n]{3,110})/im],
+  bateria:[/(?:^|\n)\s*(?:bater[ií]a(?: interna)?|battery)\s*[:\-]?\s*([^\n]{3,110})/im],
+  temperatura:[/(?:^|\n)\s*(?:temperatura(?: de operaci[oó]n)?|operating temperature)\s*[:\-]?\s*([^\n]{3,70})/im],
+  humedad:[/(?:^|\n)\s*(?:humedad(?: relativa)?|relative humidity|humidity)\s*[:\-]?\s*([^\n]{3,70})/im],
+  fuenteAlimentacion:[/(?:^|\n)\s*(?:fuente de alimentaci[oó]n|power supply|alimentaci[oó]n el[eé]ctrica)\s*[:\-]?\s*([^\n]{3,80})/im],
+  tamanoPantalla:[/(?:^|\n)\s*(?:tama[nñ]o de pantalla|screen size|display size)\s*[:\-]?\s*([^\n]{2,55})/im],
+  periodicidad:[/(?:^|\n)\s*(?:periodicidad|frecuencia de mantenimiento|maintenance interval)\s*[:\-]?\s*([^\n]{2,70})/im]
  };
- for(const [k,ps] of Object.entries(rules)){const v=rx(t,ps);if(v)addCandidate(k,v,doc,doc.type==='invima'&&['registroSanitario','vencimientoRegistro','clasificacionRiesgo'].includes(k)?.97:.80)}
- // nombre por documentos regulatorios/ficha, con reglas conservadoras
- let n=rx(t,[/(?:nombre del dispositivo|nombre del producto|producto|device name)\s*[:\-]\s*([^\n]{3,120})/i]); if(n)addCandidate('nombre',n,doc,.82);
- // país por patrón explícito de fabricante
- if(!candidates.pais?.length){let p=rx(t,[/(?:fabricado en|made in)\s+([^\n,.]{3,50})/i]);if(p)addCandidate('pais',p,doc,.75)}
- // componentes por líneas cercanas
- let comp=rx(t,[/(?:componentes y accesorios|accesorios incluidos|included accessories)\s*[:\-]?\s*([^\n]{3,300})/i]); if(comp)addCandidate('componentes',comp,doc,.7);
+ const allowed={
+   registroSanitario:isReg||doc.type==='importacion', vencimientoRegistro:isReg, clasificacionRiesgo:isReg,
+   voltaje:isTechnical, corriente:isTechnical, potencia:isTechnical, frecuencia:isTechnical, peso:isTechnical, dimensiones:isTechnical, bateria:isTechnical, temperatura:isTechnical, humedad:isTechnical, fuenteAlimentacion:isTechnical, tamanoPantalla:isTechnical,
+   proveedor:isCommercial, numeroDocumento:isCommercial, costo:doc.type==='factura', garantia:doc.type==='garantia'||doc.type==='factura', telefono:isCommercial, correo:isCommercial,
+   marca:true, modelo:true, serie:doc.type==='placa'||doc.type==='acta_entrega'||doc.type==='acta_instalacion', fabricante:isReg||isTechnical||doc.type==='importacion', pais:isReg||doc.type==='importacion'||doc.type==='ficha', vidaUtil:isReg||doc.type==='ficha'||doc.type==='manual', periodicidad:isTechnical
+ };
+ for(const [k,ps] of Object.entries(rules)){
+   if(allowed[k]===false) continue;
+   const v=rx(t,ps);
+   if(v){let conf=.86;if(isReg&&['registroSanitario','vencimientoRegistro','clasificacionRiesgo'].includes(k))conf=.99;if(doc.type==='ficha'&&['voltaje','corriente','potencia','frecuencia','peso','dimensiones','bateria'].includes(k))conf=.93;addCandidate(k,v,doc,conf)}
+ }
+ // Nombre: solo etiquetas explícitas, nunca frases genéricas.
+ let n=rx(t,[/(?:^|\n)\s*(?:nombre del dispositivo|nombre del producto|device name|producto)\s*[:\-]\s*([^\n]{3,100})/im]);
+ if(n && !looksLikeSentence(n)) addCandidate('nombre',n,doc,isReg?.95:.85);
+ // País solo "Made in/Fabricado en" y valor corto.
+ let p=rx(t,[/(?:fabricado en|made in)\s*[:\-]?\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ .-]{3,35})/i]);
+ if(p)addCandidate('pais',p,doc,.88);
+ // Componentes: solo encabezado explícito y texto corto.
+ let comp=rx(t,[/(?:^|\n)\s*(?:componentes y accesorios|accesorios incluidos|included accessories)\s*[:\-]?\s*([^\n]{3,180})/im]);
+ if(comp)addCandidate('componentes',comp,doc,.78);
 }
 function chooseAll(){for(const f of FIELDS){const arr=(candidates[f.key]||[]).slice().sort((a,b)=>b.priority-a.priority||b.confidence-a.confidence);if(!selected[f.key]&&arr.length)selected[f.key]=arr[0].value}}
-function stateFor(k){const arr=candidates[k]||[];const vals=[...new Set(arr.map(x=>x.value.toLowerCase()))];if(!selected[k])return ['bad','Pendiente'];if(vals.length>1)return ['warn','Revisar'];return ['ok','Confirmado']}
+function stateFor(k){const arr=(candidates[k]||[]).slice().sort((a,b)=>b.priority-a.priority||b.confidence-a.confidence);const vals=[...new Set(arr.map(x=>x.value.toLowerCase()))];if(!selected[k])return ['bad','Pendiente'];const top=arr.find(x=>x.value===selected[k])||arr[0];if(vals.length>1||!top||top.confidence<.90)return ['warn','Revisar'];return ['ok','Confirmado']}
 function renderDocs(){const el=$('docs');if(!docs.length){el.innerHTML='<div class="meta">Sin documentos cargados.</div>';return}el.innerHTML=docs.map(d=>`<div class="doc"><div class="docname">${esc(d.name)}</div><span class="badge ${d.text?'ok':'warn'}">${esc(d.type.replaceAll('_',' '))}</span><div class="meta">${d.text?d.text.length.toLocaleString()+' caracteres extraídos':'Sin texto extraído'}</div></div>`).join('')}
 function renderForm(){if(!FIELDS.some(f=>selected[f.key]||(candidates[f.key]||[]).length)){ $('form').innerHTML='<div class="empty">No se han encontrado campos todavía.</div>';return}
  let html='';for(const [sec,title] of Object.entries(sections)){html+=`<div class="section"><h3>${title}</h3><div class="fields">`;for(const f of FIELDS.filter(x=>x.section===sec)){const arr=(candidates[f.key]||[]).slice().sort((a,b)=>b.priority-a.priority);const [cl,st]=stateFor(f.key);html+=`<div class="field"><label>${esc(f.label)} <span class="state ${cl}">${st}</span></label>`;
