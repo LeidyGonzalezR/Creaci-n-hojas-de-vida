@@ -37,7 +37,7 @@
   </style>
 </head>
 <body>
-<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · revisión documental + validación técnica biomédica + generación del formato institucional</p></header>
+<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · revisión documental con IA + validación técnica biomédica + generación del formato institucional</p></header>
 <div class="wrap">
   <div class="grid">
     <aside>
@@ -50,7 +50,7 @@
             <li>Cuando termines todos los lotes, pide <strong>“Generar para aplicativo”</strong>.</li>
             <li>Copia el JSON y pégalo aquí.</li>
           </ol>
-          <div class="actions"><button class="btn secondary" id="copyPrompt">Copiar prompt para Copilot</button><button class="btn primary" id="pasteJson">Importar JSON</button></div>
+          <div class="actions"><button class="btn secondary" id="copyPrompt">Copiar prompt universal</button><button class="btn primary" id="pasteJson">Importar JSON</button></div>
           <div id="importStatus" class="small" style="margin-top:9px">Sin JSON importado.</div>
         </div>
       </div>
@@ -84,7 +84,7 @@
 </div>
 
 <dialog id="jsonDialog">
-  <div class="dialogHead">Importar JSON de Copilot</div>
+  <div class="dialogHead">Importar JSON de IA</div>
   <div class="dialogBody">
     <p class="small">Acepta JSON plano o con estructura <span class="key">valor / fuente / estado</span>. Puedes pegar directamente la respuesta del agente.</p>
     <textarea id="jsonText" class="jsonarea" placeholder='{"nombre":{"valor":"Cama hospitalaria Affinity 4","fuente":"Manual","estado":"confirmado"},"marca":{"valor":"Hillrom","fuente":"INVIMA","estado":"confirmado"}}'></textarea>
@@ -267,17 +267,260 @@ $('generate').onclick=async()=>{try{$('generate').disabled=true;$('genStatus').t
   if(photoData){const ext=(photoData.type||'image/jpeg').includes('png')?'png':'jpeg';const id=wb.addImage({buffer:photoData.buffer,extension:ext});ws.addImage(id,{tl:{col:0,row:3},br:{col:10,row:15},editAs:'oneCell'});}
   const model=(values.modelo||'SIN_MODELO').replace(/[\\/:*?"<>|]/g,'-');const out=await wb.xlsx.writeBuffer();saveAs(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`HV - ${model}.xlsx`);$('genStatus').textContent='Excel generado. Revisa el archivo antes de archivarlo.';
 }catch(e){console.error(e);$('genStatus').textContent='Error: '+e.message}finally{$('generate').disabled=false}};
-const PROMPT=`Eres un asistente especializado en Ingeniería Biomédica. Vas a analizar la documentación de UN SOLO equipo biomédico para preparar su hoja de vida institucional.\n\nIMPORTANTE SOBRE LOS LOTES:\n- El usuario puede adjuntar máximo 3 archivos por vez.\n- Puede enviarte varios lotes en esta misma conversación.\n- Conserva y consolida la información de todos los lotes del mismo equipo.\n- No generes el JSON final hasta que el usuario escriba exactamente: GENERAR PARA APLICATIVO.\n\nREGLAS DE VALIDACIÓN:\n1. No inventes ni completes por lógica.\n2. Si un dato no aparece o no puede verificarse, usa N/R.\n3. Si dos fuentes contradicen un dato, usa estado \"revisar\" y explica en \"fuente\" cuáles documentos discrepan.\n4. Para registro sanitario, riesgo y vencimiento, prioriza INVIMA.\n5. Para voltaje, corriente, potencia, frecuencia, dimensiones, peso, batería, temperatura y humedad, prioriza ficha técnica y manual oficial.\n6. Para factura, costo, proveedor, fecha de compra y garantía, prioriza factura/orden de compra/carta de garantía.\n7. Para serie, inventario, ubicación e inicio de operación, no uses un manual general. Déjalos N/R si no aparecen en documentación específica del activo.\n8. Diferencia accesorios compatibles de accesorios realmente entregados.\n\nCUANDO EL USUARIO ESCRIBA \"GENERAR PARA APLICATIVO\":\nDevuelve ÚNICAMENTE un objeto JSON válido. No uses Markdown, no uses bloques de código y no escribas explicaciones antes ni después.\n\nPara CADA propiedad usa esta estructura:\n\"campo\": {\"valor\":\"...\",\"fuente\":\"nombre del documento o documentos\",\"estado\":\"confirmado|revisar|pendiente\"}\n\nUsa EXACTAMENTE estas propiedades, sin agregar ni omitir ninguna:\n${FIELDS.map(f=>`\"${f.key}\": {\"valor\":\"\",\"fuente\":\"\",\"estado\":\"pendiente\"}`).join(',\n')}
-\nCAMPOS DE VALIDACIÓN TÉCNICA ADICIONALES:
-También puedes proponer estos campos cuando estén claramente soportados por los documentos, pero deben quedar con estado "revisar" porque Ingeniería Biomédica los validará:
-- "tipoEquipo": MOVIL, FIJO o N/R.
-- "proteccionClase": I, II, III o N/R.
-- "proteccionTipo": B, BF, CF o N/R.
-- "registroFuncionamiento": texto breve o varias líneas con información explícitamente documentada.
-- "actividadesMantenimiento": arreglo de actividades que el fabricante indique expresamente. No inventes actividades por lógica.
+const PROMPT=`Actúa como asistente especializado en Ingeniería Biomédica y documentación técnica de equipos médicos.
 
-Para actividadesMantenimiento usa únicamente nombres que coincidan con la lista mostrada en el aplicativo.
-\n\nCriterio de estado:\n- confirmado: el valor aparece de forma clara y coherente en una fuente adecuada.\n- revisar: existe duda, discrepancia o el valor requiere validación biomédica.\n- pendiente: valor N/R o no disponible.\n\nConserva unidades originales y fechas en formato DD/MM/AAAA cuando sea posible.`;
+Estoy construyendo la hoja de vida institucional de un equipo biomédico. Voy a proporcionarte uno o varios documentos del proveedor. Dependiendo de la plataforma, puedo adjuntar todos los documentos de una vez o enviarlos en varios mensajes.
+
+IMPORTANTE:
+Todos los archivos que envíe dentro de esta conversación pertenecen al mismo equipo, salvo que yo indique expresamente que iniciamos un equipo nuevo.
+
+OBJETIVO
+
+Analiza toda la documentación suministrada y consolida únicamente información verificable del equipo para diligenciar una hoja de vida biomédica institucional.
+
+Los documentos pueden incluir:
+- Registro sanitario INVIMA.
+- Ficha técnica.
+- Manual de usuario o servicio.
+- Declaración o documento de importación.
+- Factura u orden de compra.
+- Carta de garantía.
+- Acta de entrega.
+- Acta de instalación.
+- Certificados.
+- Fotografía de placa de características.
+- Otros documentos técnicos o administrativos del proveedor.
+
+REGLAS OBLIGATORIAS
+
+No inventes información.
+
+No completes datos por lógica, conocimiento general del equipo ni información externa a los documentos proporcionados.
+
+No confundas información de una familia de equipos con información específica del modelo analizado.
+
+No tomes números de serie de ejemplos incluidos en manuales.
+
+No registres accesorios opcionales como accesorios entregados.
+
+No conviertas advertencias, ejemplos o límites ambientales genéricos en especificaciones del equipo si el documento no indica claramente que aplican al modelo analizado.
+
+Si un dato no aparece en ningún documento, registra:
+"N/R"
+
+Si dos documentos contienen valores diferentes para el mismo campo y no es posible determinar documentalmente cuál corresponde, registra:
+"DISCREPANCIA DOCUMENTAL"
+
+y conserva ambos valores y sus fuentes para revisión.
+
+PRIORIDAD DE FUENTES
+
+Para registro sanitario, vencimiento, clasificación de riesgo y fabricante regulatorio:
+prioriza INVIMA o documento sanitario oficial.
+
+Para marca, modelo y número de serie:
+prioriza placa del equipo, acta de entrega, acta de instalación o documentación específica del activo.
+
+Para características técnicas:
+prioriza ficha técnica oficial y manual del fabricante.
+
+Para proveedor, factura, costo y fecha de compra:
+prioriza factura, orden de compra o documento comercial.
+
+Para garantía:
+prioriza carta o certificado de garantía.
+
+Para fecha de entrega e instalación:
+prioriza las respectivas actas.
+
+PROCESAMIENTO DE DOCUMENTOS
+
+Analiza todos los archivos disponibles en la conversación.
+
+Si recibes varios documentos en un mismo mensaje, procésalos conjuntamente.
+
+Si recibes documentos adicionales después, intégralos con toda la información ya obtenida del mismo equipo.
+
+No pierdas información previamente sustentada.
+
+Si una nueva fuente es más específica o tiene mayor prioridad documental, puedes actualizar el valor anterior.
+
+Si aparece una contradicción, conserva la discrepancia para revisión.
+
+Si considero que ya te entregué toda la documentación disponible, puedo escribir:
+
+GENERAR JSON FINAL
+
+También puedes generar el JSON final inmediatamente si te lo solicito desde el primer mensaje y ya existe información suficiente para hacerlo.
+
+CAMPOS A CONSOLIDAR
+
+Información general:
+nombre del equipo
+marca
+modelo
+serie
+inventario o activo
+ubicación
+
+Adquisición y puesta en operación:
+forma de adquisición
+documento de adquisición
+número de documento
+fecha de compra
+acta de recibo
+fecha de instalación
+inicio de operación
+vencimiento o duración de garantía
+costo
+vida útil
+
+Proveedor y fabricante:
+proveedor
+teléfono
+correo
+fabricante
+país de fabricación
+
+Información biomédica:
+registro sanitario
+vencimiento del registro
+clasificación biomédica
+clasificación por riesgo
+
+Registro técnico:
+fuente de alimentación
+tecnología predominante
+voltaje
+corriente
+potencia
+frecuencia
+dimensiones
+presión
+velocidad
+batería interna
+peso
+temperatura
+humedad
+tamaño de pantalla
+presión atmosférica
+procesador
+memoria RAM
+número de procesadores
+capacidad de disco
+pulgadas
+
+Validación técnica:
+tipo de equipo: MÓVIL, FIJO o N/R
+protección eléctrica: Clase I, II, III o N/R
+tipo de protección: B, BF, CF o N/R
+registro técnico de funcionamiento
+actividades de mantenimiento aplicables
+
+Información complementaria:
+componentes y accesorios
+protocolo o recomendaciones de mantenimiento
+periodicidad recomendada
+recomendaciones del fabricante
+
+CUANDO ESCRIBA "GENERAR JSON FINAL"
+
+Revisa nuevamente toda la información disponible en la conversación y genera un único JSON válido.
+
+No escribas explicaciones antes ni después.
+No uses Markdown.
+No uses bloques de código.
+No omitas propiedades.
+No agregues propiedades diferentes.
+
+Usa exactamente esta estructura:
+
+{
+  "nombre": {"valor":"","fuente":"","estado":""},
+  "marca": {"valor":"","fuente":"","estado":""},
+  "modelo": {"valor":"","fuente":"","estado":""},
+  "serie": {"valor":"","fuente":"","estado":""},
+  "inventario": {"valor":"","fuente":"","estado":""},
+  "ubicacion": {"valor":"","fuente":"","estado":""},
+
+  "formaAdquisicion": {"valor":"","fuente":"","estado":""},
+  "documentoAdquisicion": {"valor":"","fuente":"","estado":""},
+  "numeroDocumento": {"valor":"","fuente":"","estado":""},
+  "fechaCompra": {"valor":"","fuente":"","estado":""},
+  "actaRecibo": {"valor":"","fuente":"","estado":""},
+  "instalacion": {"valor":"","fuente":"","estado":""},
+  "inicioOperacion": {"valor":"","fuente":"","estado":""},
+  "garantia": {"valor":"","fuente":"","estado":""},
+  "costo": {"valor":"","fuente":"","estado":""},
+  "vidaUtil": {"valor":"","fuente":"","estado":""},
+
+  "proveedor": {"valor":"","fuente":"","estado":""},
+  "telefono": {"valor":"","fuente":"","estado":""},
+  "correo": {"valor":"","fuente":"","estado":""},
+  "fabricante": {"valor":"","fuente":"","estado":""},
+  "pais": {"valor":"","fuente":"","estado":""},
+
+  "registroSanitario": {"valor":"","fuente":"","estado":""},
+  "vencimientoRegistro": {"valor":"","fuente":"","estado":""},
+  "clasificacionBiomedica": {"valor":"","fuente":"","estado":""},
+  "clasificacionRiesgo": {"valor":"","fuente":"","estado":""},
+
+  "fuenteAlimentacion": {"valor":"","fuente":"","estado":""},
+  "tecnologiaPredominante": {"valor":"","fuente":"","estado":""},
+  "voltaje": {"valor":"","fuente":"","estado":""},
+  "corriente": {"valor":"","fuente":"","estado":""},
+  "potencia": {"valor":"","fuente":"","estado":""},
+  "frecuencia": {"valor":"","fuente":"","estado":""},
+  "dimensiones": {"valor":"","fuente":"","estado":""},
+  "presion": {"valor":"","fuente":"","estado":""},
+  "velocidad": {"valor":"","fuente":"","estado":""},
+  "bateria": {"valor":"","fuente":"","estado":""},
+  "peso": {"valor":"","fuente":"","estado":""},
+  "temperatura": {"valor":"","fuente":"","estado":""},
+  "humedad": {"valor":"","fuente":"","estado":""},
+  "tamanoPantalla": {"valor":"","fuente":"","estado":""},
+  "presionAtmosferica": {"valor":"","fuente":"","estado":""},
+  "procesador": {"valor":"","fuente":"","estado":""},
+  "memoriaRam": {"valor":"","fuente":"","estado":""},
+  "numeroProcesadores": {"valor":"","fuente":"","estado":""},
+  "capacidadDisco": {"valor":"","fuente":"","estado":""},
+  "pulgadas": {"valor":"","fuente":"","estado":""},
+
+  "tipoEquipo": {"valor":"","fuente":"","estado":""},
+  "proteccionClase": {"valor":"","fuente":"","estado":""},
+  "proteccionTipo": {"valor":"","fuente":"","estado":""},
+  "registroFuncionamiento": {"valor":"","fuente":"","estado":""},
+
+  "componentesAccesorios": {"valor":"","fuente":"","estado":""},
+  "protocoloMantenimiento": {"valor":"","fuente":"","estado":""},
+  "periodicidad": {"valor":"","fuente":"","estado":""},
+  "recomendacionesFabricante": {"valor":"","fuente":"","estado":""},
+
+  "actividadesMantenimiento": []
+}
+
+Para "estado" utiliza únicamente:
+"confirmado"
+"revisar"
+"pendiente"
+"discrepancia"
+
+Usa "confirmado" solo cuando exista evidencia documental clara y específica.
+
+Usa "revisar" cuando el dato parezca válido pero requiera validación de Ingeniería Biomédica.
+
+Usa "pendiente" cuando el valor sea N/R.
+
+Usa "discrepancia" cuando existan valores contradictorios.
+
+En "fuente" coloca el nombre del documento y, cuando sea posible, página o sección.
+
+Conserva las unidades exactamente como aparecen en la documentación.
+
+Para actividadesMantenimiento incluye únicamente actividades expresamente sustentadas por los documentos. Si no hay soporte suficiente, devuelve un arreglo vacío.
+
+La prioridad es la exactitud documental, no llenar todos los campos.
+`;
 $('promptText').value=PROMPT;
 async function copyPrompt(){try{await navigator.clipboard.writeText(PROMPT);$('copyStatus').textContent='Prompt copiado al portapapeles.'}catch{$('promptText').select();document.execCommand('copy');$('copyStatus').textContent='Prompt copiado.'}}
 $('copyPrompt').onclick=()=>{$('promptDialog').showModal()};$('closePrompt').onclick=()=>$('promptDialog').close();$('copyPromptInside').onclick=copyPrompt;
