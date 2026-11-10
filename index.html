@@ -23,11 +23,21 @@
     .empty{padding:36px;text-align:center;color:var(--muted)}.footer{font-size:11px;color:var(--muted);text-align:center;padding:18px}
     dialog{border:0;border-radius:14px;box-shadow:0 16px 50px #0004;width:min(850px,94vw);padding:0}dialog::backdrop{background:#0006}.dialogHead{padding:15px 18px;border-bottom:1px solid var(--line);font-weight:700}.dialogBody{padding:16px 18px}.dialogFoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}.jsonarea,.promptarea{width:100%;min-height:330px;font-family:Consolas,monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}.promptarea{min-height:420px}
     .key{display:inline-block;font-family:Consolas,monospace;background:#eef2f6;border-radius:5px;padding:2px 5px;font-size:11px}.small{font-size:11px;color:var(--muted)}
+    .specialGrid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px}
+    .choiceGroup{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f9faff}
+    .choiceGroup label.title{display:block;font-size:11px;font-weight:700;color:#526174;margin-bottom:7px}
+    .choiceGroup select,.choiceGroup textarea{width:100%;border:1px solid #ccd6e0;border-radius:7px;padding:8px;font:inherit;font-size:12px;background:white}
+    .choiceGroup textarea{min-height:92px;resize:vertical}
+    .checkGrid{display:grid;grid-template-columns:repeat(3,minmax(210px,1fr));gap:7px 12px}
+    .checkItem{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;font-size:12px}
+    .checkItem input{margin-top:2px}
+    @media(max-width:980px){.specialGrid,.checkGrid{grid-template-columns:repeat(2,minmax(150px,1fr))}}
+    @media(max-width:620px){.specialGrid,.checkGrid{grid-template-columns:1fr}}
     @media(max-width:980px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:repeat(2,minmax(150px,1fr))}} @media(max-width:620px){.fields{grid-template-columns:1fr}.wrap{padding:10px}}
   </style>
 </head>
 <body>
-<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · revisión de datos extraídos por Copilot y generación del formato institucional</p></header>
+<header><h1>Hoja de Vida Biomédica</h1><p>Clínica La Esperanza · revisión documental + validación técnica biomédica + generación del formato institucional</p></header>
 <div class="wrap">
   <div class="grid">
     <aside>
@@ -100,7 +110,15 @@ const FIELDS=[
 ['extra','componentes','Componentes y accesorios','A27',false],['extra','protocoloMantenimiento','Protocolo de mantenimiento','A32',true],['extra','periodicidad','Periodicidad','P31',true],['extra','recomendaciones','Recomendaciones del fabricante','U32',false]
 ].map(x=>({section:x[0],key:x[1],label:x[2],cell:x[3],institutional:x[4]}));
 const SECTIONS={general:'Información general',adq:'Adquisición y puesta en operación',proveedor:'Proveedor y fabricante',bio:'Información biomédica',tec:'Registro técnico de instalación',extra:'Información complementaria'};
-let values={}, meta={}, photoData=null;
+const SPECIAL_DEFAULTS={tipoEquipo:'N/R',proteccionClase:'N/R',proteccionTipo:'N/R',registroFuncionamiento:'',actividades:[]};
+const ACTIVITY_MAP=[
+['Inspección física del equipo','F34'],['Prueba de sist. de encendido','F35'],['Prueba de batería','F36'],['Prueba de cargador','F37'],
+['Revisión de Panel de Control','F38'],['Revisión de Cableado Eléctrico','F39'],['Revisión de motor','F40'],['Prueba de sist. Luminoso','F41'],['Prueba Acústica','F42'],
+['Limpieza de Tarjetas electrónicas','L34'],['Limpieza de Contactos eléctricos','L35'],['Lubricación y ajuste de Sist. Mecánico','L36'],
+['Limpieza de filtros y ventiladores','L37'],['Prueba de Fugas Neumáticas','L38'],['Revisión y Ajuste de sist. Neumático','L39'],['Ajuste a cero','L40'],
+['Procedimiento de ajuste de parámetros','L41'],['Prueba y Ajuste de Sensores','L42'],['Revisión de Impresora','S34'],['Limpieza General','S35'],['Prueba general de Funcionamiento','S36']
+];
+let values={}, meta={}, photoData=null, special=JSON.parse(JSON.stringify(SPECIAL_DEFAULTS));
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function normalizeState(s){s=String(s||'').toLowerCase().trim();if(['confirmado','confirmed','ok'].includes(s))return 'confirmado';if(['revisar','review','discrepancia','discrepancia documental'].includes(s))return 'revisar';if(['manual','institucional'].includes(s))return 'manual';return 'pendiente'}
@@ -118,7 +136,20 @@ function normalizeImported(obj){
       m[f.key]={fuente:'Copilot',estado:out[f.key] && out[f.key]!=='N/R'?'revisar':'pendiente'};
     }
   }
-  return {out,m};
+  const sp={};
+  const readSpecial=(key)=>{
+    const raw=obj?.[key];
+    if(raw==null)return '';
+    if(typeof raw==='object'&&!Array.isArray(raw))return String(raw.valor ?? raw.value ?? '').trim();
+    return String(raw).trim();
+  };
+  sp.tipoEquipo=readSpecial('tipoEquipo')||readSpecial('movilFijo');
+  sp.proteccionClase=readSpecial('proteccionClase')||readSpecial('claseProteccion');
+  sp.proteccionTipo=readSpecial('proteccionTipo')||readSpecial('tipoProteccion');
+  sp.registroFuncionamiento=readSpecial('registroFuncionamiento')||readSpecial('registroTecnicoFuncionamiento');
+  const acts=obj?.actividadesMantenimiento ?? obj?.actividades;
+  sp.actividades=Array.isArray(acts)?acts.map(x=>typeof x==='string'?x:(x?.nombre||x?.valor||'')).filter(Boolean):[];
+  return {out,m,sp};
 }
 function stateInfo(key){
   const f=FIELDS.find(x=>x.key===key);const v=(values[key]||'').trim();
@@ -141,8 +172,40 @@ function renderForm(){
     }
     html+='</div></div>';
   }
+  html+=`<div class="section">
+    <h3>Validación técnica biomédica</h3>
+    <div class="notice" style="margin-bottom:10px">Estos campos requieren validación de Ingeniería Biomédica. Si el agente los propone, revísalos; si no, selecciónalos manualmente.</div>
+    <div class="specialGrid">
+      <div class="choiceGroup"><label class="title">Tipo de equipo</label>
+        <select id="tipoEquipo"><option value="N/R">N/R</option><option value="MOVIL">Móvil</option><option value="FIJO">Fijo</option></select>
+      </div>
+      <div class="choiceGroup"><label class="title">Protección eléctrica — Clase</label>
+        <select id="proteccionClase"><option value="N/R">N/R</option><option value="I">Clase I</option><option value="II">Clase II</option><option value="III">Clase III</option></select>
+      </div>
+      <div class="choiceGroup"><label class="title">Protección eléctrica — Tipo</label>
+        <select id="proteccionTipo"><option value="N/R">N/R</option><option value="B">Tipo B</option><option value="BF">Tipo BF</option><option value="CF">Tipo CF</option></select>
+      </div>
+    </div>
+    <div class="choiceGroup" style="margin-top:10px"><label class="title">Registro técnico de funcionamiento</label>
+      <textarea id="registroFuncionamiento" placeholder="Escribe una observación por línea. Se distribuirán automáticamente en el bloque del Excel."></textarea>
+      <div class="src">Hasta 28 líneas, distribuidas en las dos columnas del formato.</div>
+    </div>
+  </div>
+  <div class="section"><h3>Actividades de mantenimiento — Marca X si aplica</h3>
+    <div class="checkGrid">${ACTIVITY_MAP.map(([name],i)=>`<label class="checkItem"><input type="checkbox" data-activity="${i}"><span>${esc(name)}</span></label>`).join('')}</div>
+  </div>`;
   $('form').innerHTML=html;
   document.querySelectorAll('[data-key]').forEach(el=>el.addEventListener('input',e=>{const k=e.target.dataset.key;values[k]=e.target.value;meta[k]=meta[k]||{};meta[k].estado=FIELDS.find(x=>x.key===k)?.institutional?'manual':'revisar';meta[k].fuente=meta[k].fuente||'Edición manual';updateSummary();refreshFieldState(e.target)}));
+  const te=$('tipoEquipo'),pc=$('proteccionClase'),pt=$('proteccionTipo'),rf=$('registroFuncionamiento');
+  if(te){te.value=special.tipoEquipo||'N/R';te.onchange=()=>{special.tipoEquipo=te.value;updateSummary()}}
+  if(pc){pc.value=special.proteccionClase||'N/R';pc.onchange=()=>{special.proteccionClase=pc.value;updateSummary()}}
+  if(pt){pt.value=special.proteccionTipo||'N/R';pt.onchange=()=>{special.proteccionTipo=pt.value;updateSummary()}}
+  if(rf){rf.value=special.registroFuncionamiento||'';rf.oninput=()=>{special.registroFuncionamiento=rf.value;updateSummary()}}
+  document.querySelectorAll('[data-activity]').forEach(ch=>{
+    const name=ACTIVITY_MAP[Number(ch.dataset.activity)][0];
+    ch.checked=(special.actividades||[]).includes(name);
+    ch.onchange=()=>{const set=new Set(special.actividades||[]);ch.checked?set.add(name):set.delete(name);special.actividades=[...set];updateSummary()};
+  });
   updateSummary();
 }
 function refreshFieldState(el){const box=el.closest('.field');if(!box)return;const k=el.dataset.key;const [cl,st]=stateInfo(k);const badge=box.querySelector('.state');badge.className='state '+cl;badge.textContent=st}
@@ -151,26 +214,70 @@ function updateSummary(){
   const pending=FIELDS.length-filled;
   const review=FIELDS.filter(f=>stateInfo(f.key)[1]==='Revisar').length;
   const institutional=FIELDS.filter(f=>f.institutional && (values[f.key]||'').trim() && values[f.key]!=='N/R').length;
-  $('summary').textContent=`${filled}/${FIELDS.length} campos con valor · ${review} para revisar · ${pending} pendientes · ${institutional} datos institucionales diligenciados.`;
+  const specialFilled=[special.tipoEquipo,special.proteccionClase,special.proteccionTipo].filter(v=>v&&v!=='N/R').length+(special.registroFuncionamiento?.trim()?1:0)+(special.actividades?.length||0);
+  $('summary').textContent=`${filled}/${FIELDS.length} campos documentales con valor · ${review} para revisar · ${pending} pendientes · ${institutional} datos institucionales · ${specialFilled} validaciones técnicas seleccionadas.`;
 }
 function cleanJsonText(txt){return txt.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim()}
 $('pasteJson').onclick=()=>{$('jsonError').textContent='';$('jsonDialog').showModal()};
 $('cancelJson').onclick=()=>$('jsonDialog').close();
-$('applyJson').onclick=()=>{try{const obj=JSON.parse(cleanJsonText($('jsonText').value));const {out,m}=normalizeImported(obj);values={...values,...out};meta={...meta,...m};renderForm();$('jsonDialog').close();const count=Object.values(out).filter(v=>v&&v!=='N/R').length;$('importStatus').textContent=`JSON importado: ${count} campos con información.`;}catch(e){$('jsonError').textContent='JSON no válido. Copia desde la primera { hasta la última }. Si Copilot usa un bloque de código, puedes pegarlo completo: el aplicativo elimina las marcas ```json automáticamente.'}};
+$('applyJson').onclick=()=>{try{const obj=JSON.parse(cleanJsonText($('jsonText').value));const {out,m,sp}=normalizeImported(obj);values={...values,...out};meta={...meta,...m};
+if(sp){
+  if(sp.tipoEquipo)special.tipoEquipo=String(sp.tipoEquipo).toUpperCase().includes('MOV')?'MOVIL':String(sp.tipoEquipo).toUpperCase().includes('FIJ')?'FIJO':special.tipoEquipo;
+  if(sp.proteccionClase)special.proteccionClase=String(sp.proteccionClase).replace(/CLASE\s*/i,'').trim().toUpperCase();
+  if(sp.proteccionTipo)special.proteccionTipo=String(sp.proteccionTipo).replace(/TIPO\s*/i,'').trim().toUpperCase();
+  if(sp.registroFuncionamiento)special.registroFuncionamiento=sp.registroFuncionamiento;
+  if(sp.actividades?.length)special.actividades=sp.actividades.filter(a=>ACTIVITY_MAP.some(([n])=>n.toLowerCase()===String(a).toLowerCase()));
+}
+renderForm();$('jsonDialog').close();const count=Object.values(out).filter(v=>v&&v!=='N/R').length;$('importStatus').textContent=`JSON importado: ${count} campos con información.`;}catch(e){$('jsonError').textContent='JSON no válido. Copia desde la primera { hasta la última }. Si Copilot usa un bloque de código, puedes pegarlo completo: el aplicativo elimina las marcas ```json automáticamente.'}};
 $('photo').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;photoData={name:f.name,buffer:await f.arrayBuffer(),type:f.type};$('photoInfo').textContent='Foto seleccionada: '+f.name;const u=URL.createObjectURL(f);$('photoPreview').src=u;$('photoPreview').style.display='block'});
-$('clearAll').onclick=()=>{if(!confirm('¿Limpiar todos los datos y la fotografía?'))return;values={};meta={};photoData=null;$('jsonText').value='';$('photo').value='';$('photoPreview').style.display='none';$('photoInfo').textContent='Sin fotografía seleccionada.';$('importStatus').textContent='Sin JSON importado.';renderForm();$('genStatus').textContent=''};
-$('saveDraft').onclick=()=>{localStorage.setItem('hv_json_draft',JSON.stringify({values,meta}));$('genStatus').textContent='Borrador guardado en este navegador.'};
-$('restoreDraft').onclick=()=>{try{const d=JSON.parse(localStorage.getItem('hv_json_draft'));if(!d)throw 0;values=d.values||{};meta=d.meta||{};renderForm();$('genStatus').textContent='Borrador restaurado.'}catch{$('genStatus').textContent='No hay borrador guardado.'}};
+$('clearAll').onclick=()=>{if(!confirm('¿Limpiar todos los datos y la fotografía?'))return;values={};meta={};photoData=null;special=JSON.parse(JSON.stringify(SPECIAL_DEFAULTS));$('jsonText').value='';$('photo').value='';$('photoPreview').style.display='none';$('photoInfo').textContent='Sin fotografía seleccionada.';$('importStatus').textContent='Sin JSON importado.';renderForm();$('genStatus').textContent=''};
+$('saveDraft').onclick=()=>{localStorage.setItem('hv_json_draft',JSON.stringify({values,meta,special}));$('genStatus').textContent='Borrador guardado en este navegador.'};
+$('restoreDraft').onclick=()=>{try{const d=JSON.parse(localStorage.getItem('hv_json_draft'));if(!d)throw 0;values=d.values||{};meta=d.meta||{};special={...JSON.parse(JSON.stringify(SPECIAL_DEFAULTS)),...(d.special||{})};renderForm();$('genStatus').textContent='Borrador restaurado.'}catch{$('genStatus').textContent='No hay borrador guardado.'}};
 $('markReviewed').onclick=()=>{for(const f of FIELDS){const v=(values[f.key]||'').trim();if(v&&v!=='N/R'&&!f.institutional){meta[f.key]=meta[f.key]||{};meta[f.key].estado='confirmado';meta[f.key].fuente=meta[f.key].fuente||'Revisión Ingeniería Biomédica'}}renderForm()};
-function reviewedJson(){const o={};for(const f of FIELDS)o[f.key]={valor:(values[f.key]||'N/R').trim()||'N/R',fuente:meta[f.key]?.fuente||'',estado:stateInfo(f.key)[1].toLowerCase()};return o}
+function reviewedJson(){const o={};for(const f of FIELDS)o[f.key]={valor:(values[f.key]||'N/R').trim()||'N/R',fuente:meta[f.key]?.fuente||'',estado:stateInfo(f.key)[1].toLowerCase()};
+o.tipoEquipo={valor:special.tipoEquipo||'N/R',fuente:'Validación Ingeniería Biomédica',estado:special.tipoEquipo&&special.tipoEquipo!=='N/R'?'manual':'pendiente'};
+o.proteccionClase={valor:special.proteccionClase||'N/R',fuente:'Validación Ingeniería Biomédica',estado:special.proteccionClase&&special.proteccionClase!=='N/R'?'manual':'pendiente'};
+o.proteccionTipo={valor:special.proteccionTipo||'N/R',fuente:'Validación Ingeniería Biomédica',estado:special.proteccionTipo&&special.proteccionTipo!=='N/R'?'manual':'pendiente'};
+o.registroFuncionamiento={valor:(special.registroFuncionamiento||'').trim()||'N/R',fuente:'Validación Ingeniería Biomédica',estado:(special.registroFuncionamiento||'').trim()?'manual':'pendiente'};
+o.actividadesMantenimiento=[...(special.actividades||[])];
+return o}
 $('downloadJson').onclick=()=>{const blob=new Blob([JSON.stringify(reviewedJson(),null,2)],{type:'application/json;charset=utf-8'});saveAs(blob,`HV_${(values.modelo||'equipo').replace(/[^a-z0-9_-]+/gi,'_')}_revisada.json`)};
 async function loadTemplate(){const r=await fetch(TEMPLATE_URL,{cache:'no-store'});if(!r.ok)throw new Error('No se encontró Hoja_de_vida_maestra.xlsx junto al HTML.');return await r.arrayBuffer()}
 function setSafe(ws,cell,val){const v=(val??'').toString().trim();ws.getCell(cell).value=v||'N/R'}
-$('generate').onclick=async()=>{try{$('generate').disabled=true;$('genStatus').textContent='Generando archivo...';const buf=await loadTemplate();const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.getWorksheet('Hoja1')||wb.worksheets[0];for(const f of FIELDS)setSafe(ws,f.cell,values[f.key]);
+function setX(ws,cell,on){ws.getCell(cell).value=on?'X':'';if(on){ws.getCell(cell).alignment={horizontal:'center',vertical:'middle'};ws.getCell(cell).font={bold:true}}}
+function fillRegistroFuncionamiento(ws,txt){
+  const lines=String(txt||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,28);
+  const cells=[];for(let r=17;r<=30;r++){cells.push('U'+r);cells.push('Z'+r)}
+  cells.forEach((c,i)=>{ws.getCell(c).value=lines[i]||'';ws.getCell(c).alignment={wrapText:true,vertical:'top'}})
+}
+function fillComponentes(ws,txt){
+  const items=String(txt||'').split(/\r?\n|;|•/).map(x=>x.trim()).filter(Boolean).slice(0,9);
+  const slots=[['A27','F27'],['G27','L27'],['M27','S27'],['A28','F28'],['G28','L28'],['M28','S28'],['A29','F29'],['G29','L29'],['M29','S29']];
+  slots.forEach(([cell,mark],i)=>{ws.getCell(cell).value=items[i]||'';ws.getCell(cell).alignment={wrapText:true,vertical:'top'};setX(ws,mark,!!items[i])})
+}
+$('generate').onclick=async()=>{try{$('generate').disabled=true;$('genStatus').textContent='Generando archivo...';const buf=await loadTemplate();const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.getWorksheet('Hoja1')||wb.worksheets[0];for(const f of FIELDS){if(f.key==='componentes')continue;setSafe(ws,f.cell,values[f.key]);}
+  setX(ws,'AD14',special.tipoEquipo==='MOVIL');
+  setX(ws,'AF14',special.tipoEquipo==='FIJO');
+  ws.getCell('AD15').value=special.proteccionClase&&special.proteccionClase!=='N/R'?special.proteccionClase:'';
+  ws.getCell('AF15').value=special.proteccionTipo&&special.proteccionTipo!=='N/R'?special.proteccionTipo:'';
+  ws.getCell('AD15').alignment={horizontal:'center'};ws.getCell('AF15').alignment={horizontal:'center'};
+  fillComponentes(ws,values.componentes);
+  fillRegistroFuncionamiento(ws,special.registroFuncionamiento);
+  ACTIVITY_MAP.forEach(([name,cell])=>setX(ws,cell,(special.actividades||[]).includes(name)));
   if(photoData){const ext=(photoData.type||'image/jpeg').includes('png')?'png':'jpeg';const id=wb.addImage({buffer:photoData.buffer,extension:ext});ws.addImage(id,{tl:{col:0,row:3},br:{col:10,row:15},editAs:'oneCell'});}
   const model=(values.modelo||'SIN_MODELO').replace(/[\\/:*?"<>|]/g,'-');const out=await wb.xlsx.writeBuffer();saveAs(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`HV - ${model}.xlsx`);$('genStatus').textContent='Excel generado. Revisa el archivo antes de archivarlo.';
 }catch(e){console.error(e);$('genStatus').textContent='Error: '+e.message}finally{$('generate').disabled=false}};
-const PROMPT=`Eres un asistente especializado en Ingeniería Biomédica. Vas a analizar la documentación de UN SOLO equipo biomédico para preparar su hoja de vida institucional.\n\nIMPORTANTE SOBRE LOS LOTES:\n- El usuario puede adjuntar máximo 3 archivos por vez.\n- Puede enviarte varios lotes en esta misma conversación.\n- Conserva y consolida la información de todos los lotes del mismo equipo.\n- No generes el JSON final hasta que el usuario escriba exactamente: GENERAR PARA APLICATIVO.\n\nREGLAS DE VALIDACIÓN:\n1. No inventes ni completes por lógica.\n2. Si un dato no aparece o no puede verificarse, usa N/R.\n3. Si dos fuentes contradicen un dato, usa estado \"revisar\" y explica en \"fuente\" cuáles documentos discrepan.\n4. Para registro sanitario, riesgo y vencimiento, prioriza INVIMA.\n5. Para voltaje, corriente, potencia, frecuencia, dimensiones, peso, batería, temperatura y humedad, prioriza ficha técnica y manual oficial.\n6. Para factura, costo, proveedor, fecha de compra y garantía, prioriza factura/orden de compra/carta de garantía.\n7. Para serie, inventario, ubicación e inicio de operación, no uses un manual general. Déjalos N/R si no aparecen en documentación específica del activo.\n8. Diferencia accesorios compatibles de accesorios realmente entregados.\n\nCUANDO EL USUARIO ESCRIBA \"GENERAR PARA APLICATIVO\":\nDevuelve ÚNICAMENTE un objeto JSON válido. No uses Markdown, no uses bloques de código y no escribas explicaciones antes ni después.\n\nPara CADA propiedad usa esta estructura:\n\"campo\": {\"valor\":\"...\",\"fuente\":\"nombre del documento o documentos\",\"estado\":\"confirmado|revisar|pendiente\"}\n\nUsa EXACTAMENTE estas propiedades, sin agregar ni omitir ninguna:\n${FIELDS.map(f=>`\"${f.key}\": {\"valor\":\"\",\"fuente\":\"\",\"estado\":\"pendiente\"}`).join(',\n')}\n\nCriterio de estado:\n- confirmado: el valor aparece de forma clara y coherente en una fuente adecuada.\n- revisar: existe duda, discrepancia o el valor requiere validación biomédica.\n- pendiente: valor N/R o no disponible.\n\nConserva unidades originales y fechas en formato DD/MM/AAAA cuando sea posible.`;
+const PROMPT=`Eres un asistente especializado en Ingeniería Biomédica. Vas a analizar la documentación de UN SOLO equipo biomédico para preparar su hoja de vida institucional.\n\nIMPORTANTE SOBRE LOS LOTES:\n- El usuario puede adjuntar máximo 3 archivos por vez.\n- Puede enviarte varios lotes en esta misma conversación.\n- Conserva y consolida la información de todos los lotes del mismo equipo.\n- No generes el JSON final hasta que el usuario escriba exactamente: GENERAR PARA APLICATIVO.\n\nREGLAS DE VALIDACIÓN:\n1. No inventes ni completes por lógica.\n2. Si un dato no aparece o no puede verificarse, usa N/R.\n3. Si dos fuentes contradicen un dato, usa estado \"revisar\" y explica en \"fuente\" cuáles documentos discrepan.\n4. Para registro sanitario, riesgo y vencimiento, prioriza INVIMA.\n5. Para voltaje, corriente, potencia, frecuencia, dimensiones, peso, batería, temperatura y humedad, prioriza ficha técnica y manual oficial.\n6. Para factura, costo, proveedor, fecha de compra y garantía, prioriza factura/orden de compra/carta de garantía.\n7. Para serie, inventario, ubicación e inicio de operación, no uses un manual general. Déjalos N/R si no aparecen en documentación específica del activo.\n8. Diferencia accesorios compatibles de accesorios realmente entregados.\n\nCUANDO EL USUARIO ESCRIBA \"GENERAR PARA APLICATIVO\":\nDevuelve ÚNICAMENTE un objeto JSON válido. No uses Markdown, no uses bloques de código y no escribas explicaciones antes ni después.\n\nPara CADA propiedad usa esta estructura:\n\"campo\": {\"valor\":\"...\",\"fuente\":\"nombre del documento o documentos\",\"estado\":\"confirmado|revisar|pendiente\"}\n\nUsa EXACTAMENTE estas propiedades, sin agregar ni omitir ninguna:\n${FIELDS.map(f=>`\"${f.key}\": {\"valor\":\"\",\"fuente\":\"\",\"estado\":\"pendiente\"}`).join(',\n')}
+\nCAMPOS DE VALIDACIÓN TÉCNICA ADICIONALES:
+También puedes proponer estos campos cuando estén claramente soportados por los documentos, pero deben quedar con estado "revisar" porque Ingeniería Biomédica los validará:
+- "tipoEquipo": MOVIL, FIJO o N/R.
+- "proteccionClase": I, II, III o N/R.
+- "proteccionTipo": B, BF, CF o N/R.
+- "registroFuncionamiento": texto breve o varias líneas con información explícitamente documentada.
+- "actividadesMantenimiento": arreglo de actividades que el fabricante indique expresamente. No inventes actividades por lógica.
+
+Para actividadesMantenimiento usa únicamente nombres que coincidan con la lista mostrada en el aplicativo.
+\n\nCriterio de estado:\n- confirmado: el valor aparece de forma clara y coherente en una fuente adecuada.\n- revisar: existe duda, discrepancia o el valor requiere validación biomédica.\n- pendiente: valor N/R o no disponible.\n\nConserva unidades originales y fechas en formato DD/MM/AAAA cuando sea posible.`;
 $('promptText').value=PROMPT;
 async function copyPrompt(){try{await navigator.clipboard.writeText(PROMPT);$('copyStatus').textContent='Prompt copiado al portapapeles.'}catch{$('promptText').select();document.execCommand('copy');$('copyStatus').textContent='Prompt copiado.'}}
 $('copyPrompt').onclick=()=>{$('promptDialog').showModal()};$('closePrompt').onclick=()=>$('promptDialog').close();$('copyPromptInside').onclick=copyPrompt;
